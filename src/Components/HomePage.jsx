@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'; 
+import { useState, useEffect } from 'react';
 import AddClientModal from './addClientModal';
-import ViewClientModal from './viewClientModal'; 
+import ViewClientModal from './viewClientModal';
 import './HomePage.css';
 import logo from '../assets/Logo-Mecaofi.jpg';
 
@@ -19,13 +19,13 @@ export default function HomePage() {
     const [searchCity, setSearchCity] = useState('');
 
     const [userId, setUserId] = useState(null); 
-    const [userName, setUserName] = useState(""); // ⬅️ Estado para el nombre del comercial
+    const [userName, setUserName] = useState(""); 
     const ADMIN_ID = 10; 
 
     useEffect(() => {
         const token = localStorage.getItem('token');
         const storedUserId = localStorage.getItem('comercialId');
-        const storedUserName = localStorage.getItem('comercialName'); // ⬅️ Lectura del nombre
+        const storedUserName = localStorage.getItem('comercialName'); 
 
         
         if (!token) {
@@ -34,7 +34,7 @@ export default function HomePage() {
         } else if (storedUserId) {
             setUserId(parseInt(storedUserId, 10)); 
             if (storedUserName) {
-                setUserName(storedUserName); // ⬅️ Guardando el nombre
+                setUserName(storedUserName); 
             }
         } 
         
@@ -65,7 +65,7 @@ export default function HomePage() {
                 if (response.status === 401) {
                     localStorage.removeItem('token'); 
                     localStorage.removeItem('comercialId');
-                    localStorage.removeItem('comercialName'); // Limpiar también el nombre
+                    localStorage.removeItem('comercialName'); 
                     throw new Error("401 Unauthorized. Sesión expirada o inválida.");
                 }
                 throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -187,7 +187,9 @@ export default function HomePage() {
                     />
                     <label htmlFor="localidad" className="form__label">Localidad</label>
                 </div>
-                <button>Registrar Comercial</button>
+                {userId === ADMIN_ID && (
+                    <button>Registrar Comercial</button>
+                )}
             </div>
 
             <h2>Listado de Clientes de {userName} ({clientesFiltrados.length})</h2>
