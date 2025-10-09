@@ -1,0 +1,114 @@
+.navBar {
+  display: flex;
+  flex-direction: row;
+  background-color: white;
+  padding: 10px 20px; 
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
+}
+h2{
+  color: white;
+  font-size: 30px;
+  font-weight: 800px;
+}
+.boton {
+  color: rgba(15, 55, 168);
+  background-color: white;
+  margin-left: 20px;
+  margin-right: 20px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: border 0.2s ease-in-out;
+}
+.boton:hover {
+  border: 1px solid rgba(15, 55, 168);
+  background-color: rgba(15, 55, 168, 0.1);
+}
+.buscador{
+  border: 2px rgba(15, 55, 168) solid;
+  border-radius: 25%;
+  margin-right: 10px;
+  margin-left: 10px;
+  height: 30px;
+}
+table{
+    border: 2px solid black;
+}
+.cabecera{
+    color: rgb(13, 44, 131);
+    background-color: rgb(236, 230, 230);
+    font-weight: 800;
+}
+tr{
+    background-color: white;
+    color: rgba(15, 55, 168);
+    font-size: 30px;
+}
+.boton.activo {
+  border-bottom: 2px solid rgba(15, 55, 168);
+  font-weight: bold;
+}
+.form__group {
+  position: relative;
+  padding: 15px 0 0;
+  margin-top: 10px;
+  width: 50%;
+}
+
+.form__field {
+  font-family: inherit;
+  width: 100%;
+  border: 0;
+  border-bottom: 2px solid #9b9b9b;
+  outline: 0;
+  font-size: 1.3rem;
+  color: #0f37a8;
+  padding: 7px 0;
+  background: transparent;
+  transition: border-color 0.2s;
+
+  &::placeholder {
+    color: transparent;
+  }
+
+  &:placeholder-shown ~ .form__label {
+    font-size: 1.3rem;
+    cursor: text;
+    top: 20px;
+  }
+}
+
+.form__label {
+  position: absolute;
+  margin-right: 10px;
+  margin-left: 10px;
+  top: 0;
+  display: block;
+  transition: 0.2s;
+  font-size: 1rem;
+  color: gray;
+}
+
+.form__field:focus {
+  ~ .form__label {
+    position: absolute;
+    top: 0;
+    display: block;
+    transition: 0.2s;
+    font-size: 1rem;
+    color: #0f37a8;
+    font-weight:700;    
+  }
+  padding-bottom: 6px;  
+  font-weight: 700;
+  border-width: 3px;
+  border-image: linear-gradient(to right, #0f37a8,#0f37a8);
+  border-image-slice: 1;
+}
+.form__field{
+  margin-right: 10px;
+  margin-left: 10px;
+  &:required,&:invalid { box-shadow:none; }
+}

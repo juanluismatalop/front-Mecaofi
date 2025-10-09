@@ -1,0 +1,228 @@
+/* src/components/viewClientModal.css */
+
+/* Variables (Asegúrate de que estas estén definidas globalmente o aquí) */
+:root {
+	--vs-primary: 29 92 255;
+    --color-error: 220 53 69; 
+    --color-success: 40 167 69;
+}
+
+/* Estilos para el backdrop (simulando ::backdrop) */
+.modal-backdrop-view {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	animation: fadeIn 0.3s ease both; /* Animación más rápida */
+	background: rgb(255 255 255 / 40%);
+	z-index: 1010; /* Z-index alto */
+	backdrop-filter: blur(15px);
+}
+
+/* Estilos para el contenido del modal (simulando <dialog>) */
+.modal-content-view {
+	padding: 1.5rem 2rem;
+	background: white;
+	max-width: 800px; /* Más ancho para la tabla */
+    width: 95%;
+	border-radius: 20px;
+	border: 0;
+	box-shadow: 0 10px 40px 0 rgb(0 0 0 / 15%);
+	animation: fadeIn 0.3s ease both;
+    position: relative; 
+    font-family: 'Poppins', sans-serif;
+    max-height: 90vh; /* Limitar altura */
+    overflow-y: auto; /* Permitir scroll si el contenido es grande */
+}
+
+.modal-header-view {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+/* Botón de cerrar (similar al .x anterior) */
+.boton-cerrar {
+    filter: grayscale(1);
+    border: none;
+    background: none;
+    position: absolute;
+    top: 5px; 
+    right: 5px; 
+    transition: ease filter, transform 0.3s;
+    cursor: pointer;
+    transform-origin: center;
+    font-size: 2rem;
+    line-height: 1;
+    padding: 0;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+        filter: grayscale(0);
+        transform: scale(1.1);
+    }
+}
+
+/* Título */
+.modal-content-view h2 {
+	font-weight: 600;
+	font-size: 1.8rem;
+	margin: 0;
+    color: #333;
+}
+
+.modal-content-view h3 {
+	font-weight: 600;
+	font-size: 1.3rem;
+	margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    color: rgb(var(--vs-primary));
+}
+
+/* Grid de detalles del cliente */
+.client-details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr; /* Dos columnas */
+    gap: 15px 25px; /* Espacio entre filas y columnas */
+    margin-bottom: 15px;
+}
+
+.detail-item {
+    padding: 8px 0;
+    border-bottom: 1px dashed #ddd;
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-item strong {
+    font-size: 0.9rem;
+    color: #666;
+    font-weight: 400;
+}
+
+.detail-item span {
+    font-size: 1.1rem;
+    color: #333;
+    font-weight: 600;
+}
+
+.detail-item.full-row {
+    grid-column: 1 / -1; /* Ocupa todo el ancho */
+}
+
+/* Separador horizontal */
+.divider {
+    border: 0;
+    height: 1px;
+    background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(var(--vs-primary), 0.5), rgba(0, 0, 0, 0));
+    margin: 20px 0;
+}
+
+/* Tabla de Visitas */
+.table-container-view {
+    overflow-x: auto;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+
+.visitas-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.visitas-table th,
+.visitas-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.visitas-table th {
+    background-color: #f8f8f8;
+    color: #333;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+}
+
+.visitas-table tbody tr:hover {
+    background-color: #f5f5ff;
+}
+
+.visitas-table .observaciones-col {
+    max-width: 300px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.visitas-table .no-data {
+    text-align: center;
+    font-style: italic;
+    color: #999;
+    padding: 20px;
+}
+
+/* Mensajes */
+.loading-message-modal, .error-message-modal {
+    text-align: center;
+    padding: 10px;
+    font-size: 1rem;
+    font-style: italic;
+}
+.error-message-modal {
+    color: rgb(var(--color-error));
+    font-weight: 600;
+}
+
+/* Botones de acción */
+.modal-actions-view {
+    padding-top: 20px;
+    text-align: right;
+}
+
+.boton-principal {
+    display: inline-block;
+	font-size: 0.9rem;
+    font-weight: 600;
+	color: #fff !important;
+	background: rgb(var(--vs-primary) / 100%);
+	padding: 10px 25px;
+	border-radius: 10px;
+	transition: all 0.25s ease;
+	border: 0;
+	cursor: pointer;
+	box-shadow: 0 5px 15px -5px rgb(var(--vs-primary) / 50%);
+
+    &:hover {
+		box-shadow: 0 10px 15px -5px rgb(var(--vs-primary) / 50%);
+		transform: translateY(-2px);
+	}
+}
+
+
+/* Keyframes */
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+        transform: translateY(20px);
+	}
+	to {
+		opacity: 1;
+        transform: translateY(0);
+	}
+}
