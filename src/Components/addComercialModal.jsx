@@ -1,21 +1,17 @@
 import React, { useState, useEffect } from 'react';
-// Reutilizamos el mismo CSS, o puedes crear uno específico si lo necesitas
 import './addClientModal.css'; 
 
 const ADMIN_ID = 10;
-const REGISTER_API_URL = 'http://localhost:3000/api/auth/register'; 
-// Asumiendo que la ruta de registro es /api/auth/register, ajusta si es necesario
+const REGISTER_API_URL = 'http://localhost:3000/api/comercial/register'; 
 
 export default function AddComercialModal ({ show, onClose, onComercialAdded }){
-    // Verifica si el usuario actual es el administrador (ID 10)
     const loggedInComercialId = parseInt(localStorage.getItem('comercialId'), 10);
     const isAdmin = loggedInComercialId === ADMIN_ID;
 
-    // Estado inicial del formulario para un nuevo comercial
     const initialFormData = {
-        Comercial: '', // Nombre de usuario
-        Pass: '',      // Contraseña (Usando 'Pass' como en tu backend)
-        Correo: '',    // Correo electrónico
+        Comercial: '', 
+        Pass: '',      
+        Correo: '',    
     };
 
     const [formData, setFormData] = useState(initialFormData);
@@ -23,7 +19,6 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
 
-    // Reinicia el formulario y los mensajes al abrir el modal
     useEffect(() => {
         if (show) {
             setFormData(initialFormData);
@@ -32,7 +27,6 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
         }
     }, [show]);
 
-    // No renderiza el modal si 'show' es falso o si no es administrador
     if (!show || !isAdmin) {
         return null;
     }
@@ -42,7 +36,6 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
             ...formData,
             [e.target.name]: e.target.value,
         });
-        // Limpia los mensajes al empezar a escribir
         setError(null);
         setSuccessMessage(null);
     };
@@ -53,7 +46,6 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
         setError(null);
         setSuccessMessage(null);
 
-        // Validaciones básicas en el frontend
         if (!formData.Comercial || !formData.Pass || !formData.Correo) {
             setError("Todos los campos son obligatorios.");
             setSubmitting(false);
@@ -67,7 +59,6 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Incluir el token de autenticación del administrador para el control de acceso
                     'Authorization': `Bearer ${token}`, 
                 },
                 body: JSON.stringify(formData), 
@@ -76,21 +67,16 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
             const responseData = await response.json();
 
             if (!response.ok) {
-                // El backend maneja errores 409 (Duplicado) y 400 (Falta campo)
                 throw new Error(responseData.message || `Error ${response.status}: No se pudo registrar al comercial.`);
             }
 
-            // Éxito
             setSuccessMessage(responseData.message || "Comercial registrado exitosamente.");
             
-            // Opcionalmente, llama a la función de callback si existe
             if (onComercialAdded) {
                 onComercialAdded();
             }
-            
-            // Podrías cerrar el modal inmediatamente o dejarlo abierto para ver el mensaje de éxito
-            // onClose(); 
-            setFormData(initialFormData); // Limpia el formulario tras el éxito
+             
+            setFormData(initialFormData); 
             
         } catch (e) {
             console.error("Error al crear comercial:", e);
