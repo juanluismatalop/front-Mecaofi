@@ -11,6 +11,8 @@ export default function Login(){
     async function Entrar(){
         setError(''); 
         try {
+            // Nota: Aquí se usa '/api/comercial/login' (singular). 
+            // Si tu servidor usa '/api/comerciales/login' (plural), esto fallará con 404.
             const response = await fetch('http://localhost:3000/api/comercial/login', {
                 method: 'POST',
                 headers: {
@@ -21,26 +23,29 @@ export default function Login(){
                     Pass: contrasenna,    
                 }),
             });
+            
+            // Verificamos si la respuesta fue OK (200). Si no es OK, 
+            // el intento de response.json() podría fallar si es un 404 que devuelve HTML.
+            if (!response.ok) {
+                // Intenta leer el error como JSON, si falla, usa un mensaje genérico.
+                const errorData = (await response.text()).includes('{') ? await response.json() : { message: 'Error de red o servidor no reconocido.' };
+                
+                const errorMessage = errorData.message || `Error del servidor (Código ${response.status}).`;
+                setError(errorMessage);
+                alert(`Error al iniciar sesión: ${errorMessage}`);
+                return; // Salir de la función
+            }
 
             const data = await response.json();
 
-            if (response.ok) {
-                console.log("Login exitoso. Token recibido:", data.token);
-                
-                localStorage.setItem('token', data.token);
-                localStorage.setItem('comercialId', data.comercialId);
-                
-                if (data.Comercial) { 
-                    localStorage.setItem('comercialName', data.Comercial);
-                }
-                
-                navigate("/Home"); 
-
-            } else {
-                const errorMessage = data.message || 'Error de conexión. Inténtelo de nuevo.';
-                setError(errorMessage);
-                alert(`Error al iniciar sesión: ${errorMessage}`);
-            }
+            // 🚨 CORRECCIÓN CLAVE: Guardamos directamente el valor del input (estado 'comercial')
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('comercialId', data.comercialId);
+            
+            // Garantizamos que el nombre guardado es el que el usuario tecleó.
+            localStorage.setItem('comercialName', comercial); 
+            
+            navigate("/Home"); 
 
         } catch (err) {
             console.error("Error de red o servidor:", err);

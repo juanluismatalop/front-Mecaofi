@@ -2,41 +2,47 @@
 
 /* Variables (Asegúrate de que estas estén definidas globalmente o aquí) */
 :root {
-	--vs-primary: 29 92 255;
+    --vs-primary: 29 92 255;
     --color-error: 220 53 69; 
     --color-success: 40 167 69;
 }
 
 /* Estilos para el backdrop (simulando ::backdrop) */
 .modal-backdrop-view {
-	position: fixed;
-	top: 0;
-	left: 0;
-	width: 100vw;
-	height: 100vh;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	animation: fadeIn 0.3s ease both; /* Animación más rápida */
-	background: rgb(255 255 255 / 40%);
-	z-index: 1010; /* Z-index alto */
-	backdrop-filter: blur(15px);
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease both;
+    background: rgb(255 255 255 / 40%);
+    z-index: 1010;
+    backdrop-filter: blur(15px);
 }
 
 /* Estilos para el contenido del modal (simulando <dialog>) */
 .modal-content-view {
-	padding: 1.5rem 2rem;
-	background: white;
-	max-width: 800px; /* Más ancho para la tabla */
+    padding: 1.5rem 2rem;
+    background: white;
+    /* 🔥 CAMBIO: Aumento del ancho máximo para dar más espacio a la tabla */
+    max-width: 1100px; 
     width: 95%;
-	border-radius: 20px;
-	border: 0;
-	box-shadow: 0 10px 40px 0 rgb(0 0 0 / 15%);
-	animation: fadeIn 0.3s ease both;
+    border-radius: 20px;
+    border: 0;
+    box-shadow: 0 10px 40px 0 rgb(0 0 0 / 15%);
+    animation: fadeIn 0.3s ease both;
     position: relative; 
     font-family: 'Poppins', sans-serif;
-    max-height: 90vh; /* Limitar altura */
-    overflow-y: auto; /* Permitir scroll si el contenido es grande */
+    /* 🔥 CAMBIO: Mayor altura máxima y configuración Flexbox */
+    max-height: 95vh; 
+    overflow-y: hidden; /* El scroll será interno de la tabla */
+    
+    /* 🔥 CLAVE: Habilitar Flexbox en columna */
+    display: flex;
+    flex-direction: column;
 }
 
 .modal-header-view {
@@ -47,6 +53,7 @@
     border-bottom: 1px solid #eee;
     margin-bottom: 1rem;
     position: relative;
+    flex-shrink: 0; /* No permite que el header se achique/agranden por flex */
 }
 
 /* Botón de cerrar (similar al .x anterior) */
@@ -68,39 +75,44 @@
     display: flex;
     align-items: center;
     justify-content: center;
+}
 
-    &:hover {
-        filter: grayscale(0);
-        transform: scale(1.1);
-    }
+.boton-cerrar:hover {
+    filter: grayscale(0);
+    transform: scale(1.1);
 }
 
 /* Título */
 .modal-content-view h2 {
-	font-weight: 600;
-	font-size: 1.8rem;
-	margin: 0;
+    font-weight: 600;
+    font-size: 1.8rem;
+    margin: 0;
     color: #333;
+    flex-shrink: 0;
 }
 
 .modal-content-view h3 {
-	font-weight: 600;
-	font-size: 1.3rem;
-	margin-top: 1.5rem;
+    font-weight: 600;
+    font-size: 1.3rem;
+    margin-top: 1.5rem;
     margin-bottom: 0.5rem;
     color: rgb(var(--vs-primary));
+    flex-shrink: 0;
 }
 
 /* Grid de detalles del cliente */
 .client-details-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr; /* Dos columnas */
-    gap: 15px 25px; /* Espacio entre filas y columnas */
-    margin-bottom: 15px;
+    /* 🔥 CAMBIO CLAVE: 3 columnas para compactar los datos arriba */
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 15px 30px; 
+    margin-bottom: 25px;
+    flex-shrink: 0; /* Asegura que no crezca, mantiene los datos arriba */
 }
 
 .detail-item {
-    padding: 8px 0;
+    /* 🔥 CAMBIO: Reducido de 8px a 6px para hacerlo más "chiquitico" */
+    padding: 6px 0; 
     border-bottom: 1px dashed #ddd;
     display: flex;
     flex-direction: column;
@@ -119,7 +131,8 @@
 }
 
 .detail-item.full-row {
-    grid-column: 1 / -1; /* Ocupa todo el ancho */
+    /* Ocupa las 3 columnas */
+    grid-column: 1 / -1; 
 }
 
 /* Separador horizontal */
@@ -128,10 +141,16 @@
     height: 1px;
     background-image: linear-gradient(to right, rgba(0, 0, 0, 0), rgba(var(--vs-primary), 0.5), rgba(0, 0, 0, 0));
     margin: 20px 0;
+    flex-shrink: 0;
 }
 
 /* Tabla de Visitas */
 .table-container-view {
+    /* 🔥 CLAVE: Permite que la tabla ocupe todo el espacio restante */
+    flex-grow: 1; 
+    min-height: 0; /* Necesario para que flex-grow funcione bien */
+    overflow-y: auto; /* Permite scroll solo en la tabla */
+    
     overflow-x: auto;
     border: 1px solid #eee;
     border-radius: 10px;
@@ -165,9 +184,13 @@
 
 .visitas-table .observaciones-col {
     max-width: 300px;
+}
+.visitas-table .observaciones-col > span {
+     /* Esto es para el modo no edición */
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: block;
 }
 
 .visitas-table .no-data {
@@ -177,52 +200,147 @@
     padding: 20px;
 }
 
-/* Mensajes */
-.loading-message-modal, .error-message-modal {
-    text-align: center;
-    padding: 10px;
-    font-size: 1rem;
+/* Estilos de inputs en tabla (Modo Edición) */
+.editable-input-table, .editable-textarea-table {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+.editable-textarea-table {
+    min-height: 80px;
+    resize: vertical;
+}
+
+
+/* --- Estilos de Archivo (Anexo) --- */
+.file-input-label {
+    display: inline-block;
+    cursor: pointer;
+    vertical-align: middle;
+}
+
+.hidden-file-input {
+    width: 0.1px;
+    height: 0.1px;
+    opacity: 0;
+    overflow: hidden;
+    position: absolute;
+    z-index: -1;
+}
+
+.boton-archivo {
+    background-color: #007bff; 
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    display: inline-block;
+    transition: background-color 0.2s;
+    border: none; 
+}
+
+.boton-archivo:hover {
+    background-color: #0056b3;
+}
+
+.file-name-display {
+    display: block;
+    margin-top: 5px;
+    font-size: 10px;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
+    white-space: nowrap;
+}
+
+.anexo-link {
+    color: #007bff;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.existing-anexo-text {
+    color: #ff9800; 
     font-style: italic;
 }
-.error-message-modal {
-    color: rgb(var(--color-error));
-    font-weight: 600;
+
+
+/* --- Estilos de Iconos para Acciones de Tabla --- */
+
+.visitas-table td {
+    vertical-align: middle; 
 }
 
-/* Botones de acción */
-.modal-actions-view {
-    padding-top: 20px;
-    text-align: right;
+.table-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center; 
+    align-items: center;
 }
 
-.boton-principal {
-    display: inline-block;
-	font-size: 0.9rem;
-    font-weight: 600;
-	color: #fff !important;
-	background: rgb(var(--vs-primary) / 100%);
-	padding: 10px 25px;
-	border-radius: 10px;
-	transition: all 0.25s ease;
-	border: 0;
-	cursor: pointer;
-	box-shadow: 0 5px 15px -5px rgb(var(--vs-primary) / 50%);
-
-    &:hover {
-		box-shadow: 0 10px 15px -5px rgb(var(--vs-primary) / 50%);
-		transform: translateY(-2px);
-	}
+.icon-button {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem; 
+    padding: 6px;
+    border-radius: 50%; 
+    transition: background-color 0.2s, transform 0.1s;
+    line-height: 1; 
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.85;
 }
 
+.icon-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+    transform: none;
+}
 
-/* Keyframes */
-@keyframes fadeIn {
-	from {
-		opacity: 0;
-        transform: translateY(20px);
-	}
-	to {
-		opacity: 1;
-        transform: translateY(0);
-	}
+/* Estilos de Hover/Color */
+.icon-button.edit-icon:not(:disabled):hover {
+    background-color: rgba(0, 123, 255, 0.1); 
+    transform: scale(1.1);
+}
+
+.icon-button.delete-icon:not(:disabled):hover {
+    background-color: rgba(220, 53, 69, 0.1); 
+    transform: scale(1.1);
+}
+
+/* Disquete (Guardar) */
+.icon-button.save-icon {
+    font-size: 1.1rem; 
+}
+.icon-button.save-icon:not(:disabled):hover {
+    background-color: rgba(40, 167, 69, 0.1); 
+    transform: scale(1.1);
+}
+
+/* X (Cancelar) */
+.icon-button.cancel-icon {
+    font-size: 1.4rem;
+}
+.icon-button.cancel-icon:not(:disabled):hover {
+    background-color: rgba(108, 117, 125, 0.1); 
+    transform: scale(1.1);
+}
+
+/* Asegurar que la cabecera de acciones tenga el ancho adecuado */
+.visitas-table th.actions-col-header {
+    width: 120px;
+    text-align: center;
+}
+
+/* Ajuste de columna de acciones en celdas */
+.visitas-table td:last-child {
+    text-align: center;
 }
