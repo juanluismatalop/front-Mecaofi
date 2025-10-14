@@ -12,19 +12,16 @@ const formatDate = (dateString, forInput = false) => {
     if (isNaN(date.getTime())) return 'N/A';
 
     if (forInput) {
+        // Formato YYYY-MM-DD para inputs de tipo date
         return date.toISOString().slice(0, 10);
     }
+    // Formato DD/MM/YYYY
     return date.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
 };
 
-// ** FUNCIÓN CORREGIDA: Usa 'comercialId' como clave **
 const getLoggedInUserId = () => {
-    // 🚨 CAMBIO CRÍTICO: Usamos 'comercialId' para coincidir con HomePage.jsx
     const userIdString = localStorage.getItem('comercialId'); 
     const userId = userIdString ? parseInt(userIdString, 10) : null;
-
-    // CONSOLE.LOG PARA DEPURACIÓN
-    console.log(`[ViewClientModal] ID Comercial Logueado (localStorage 'comercialId'): ${userIdString} -> Número: ${userId}`);
     
     return userId;
 };
@@ -43,6 +40,12 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
     const [visitaSaveError, setVisitaSaveError] = useState(null);
     const [fileAttachment, setFileAttachment] = useState({}); 
 
+    // Obtener ID del usuario logueado
+    const loggedInUserId = getLoggedInUserId();
+    // Lógica para determinar si puede eliminar (ej: ID 10 es Admin)
+    const canDelete = loggedInUserId === 10; 
+    const isVisitaEditing = editingVisitaId !== null;
+
     useEffect(() => {
         setSaveError(null);
         setVisitaSaveError(null);
@@ -59,6 +62,8 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             const token = localStorage.getItem('token'); 
 
             try {
+                // Esta llamada siempre trae TODAS las visitas de este cliente,
+                // independientemente del comercial logueado.
                 const response = await fetch(`${VISITAS_API_BASE_URL_CLIENTE}/${cliente.Id}`, { 
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${token}` },
@@ -69,10 +74,10 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 }
 
                 const data = await response.json();
+                
                 setVisitas(data.sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha))); 
                 
             } catch (error) { 
-                console.error("Error al obtener visitas:", error);
                 setErrorVisitas(error.message || "Error al cargar las visitas.");
             } finally {
                 setLoadingVisitas(false);
@@ -148,7 +153,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             }
             setIsEditing(false);
         } catch (error) {
-            console.error("Error al guardar cliente:", error);
             setSaveError(error.message || "Error de red al intentar guardar.");
         }
     };
@@ -176,7 +180,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 onClientDelete(cliente.Id);
             }
         } catch (error) {
-            console.error("Error al eliminar cliente:", error);
             setSaveError(error.message || "Error de red al intentar eliminar.");
         }
     };
@@ -214,8 +217,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             [visitaId]: file
         }));
 
-        // NOTA: Mantenemos la actualización de editedVisita.Anexo solo para visualizar
-        // el nombre del archivo si es una nueva visita/edición.
+        // Actualiza el nombre del anexo en el estado de edición para mostrarlo
         setEditedVisita(prev => ({
             ...prev,
             Anexo: file ? file.name : (visitas.find(v => v.Id === visitaId)?.Anexo || false)
@@ -234,12 +236,16 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         const file = fileAttachment['NEW_VISIT'];
         const formData = new FormData();
         formData.append('IdCliente', cliente.Id);
+        // Sugerir el IdComercial del cliente al backend
+        if (cliente.IdComercial) {
+             formData.append('IdComercial', cliente.IdComercial);
+        }
         formData.append('Fecha', editedVisita.Fecha);
         formData.append('ProximaFecha', editedVisita.ProximaFecha || ''); 
         formData.append('Observaciones', editedVisita.Observaciones);
         
         if (file) {
-            formData.append('anexoFile', file); 
+            formData.append('anexoFile', file); // Usa 'anexoFile'
         }
 
         try {
@@ -269,6 +275,8 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 ...editedVisita, 
                 Id: data.Id || data.id, 
                 NombreCliente: cliente.Nombre, 
+                // Aseguramos que la visita local tenga el IdComercial del cliente 
+                IdComercial: cliente.IdComercial, 
                 Anexo: data.Anexo || (file ? file.name : null) 
             };
             
@@ -279,7 +287,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             setFileAttachment(prev => { delete prev['NEW_VISIT']; return prev; }); 
 
         } catch (error) {
-            console.error("Error al registrar nueva visita:", error);
             setVisitaSaveError(error.message || "Error de red al intentar registrar la visita.");
         }
     };
@@ -314,13 +321,17 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         const formData = new FormData();
         formData.append('IdCliente', editedVisita.IdCliente); 
         formData.append('Fecha', editedVisita.Fecha); 
+        // Sugerir el IdComercial del cliente al backend
+        if (cliente.IdComercial) { 
+            formData.append('IdComercial', cliente.IdComercial); 
+        }
         formData.append('ProximaFecha', editedVisita.ProximaFecha || ''); 
         formData.append('Observaciones', editedVisita.Observaciones);
         
         if (file) {
-            formData.append('anexoFile', file); 
+            formData.append('anexoFile', file); // Usa 'anexoFile'
         } else {
-            // Envía el nombre del anexo existente o vacío si no hay archivo nuevo y no se toca
+            // Si no hay archivo nuevo, aseguramos que se mantenga el Anexo si existe
             formData.append('Anexo', editedVisita.Anexo || ''); 
         }
 
@@ -354,7 +365,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             setFileAttachment(prev => { delete prev[visitaId]; return prev; });
             
         } catch (error) {
-            console.error("Error al guardar visita:", error);
             setVisitaSaveError(error.message || "Error de red al intentar guardar la visita.");
         }
     };
@@ -387,7 +397,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             setVisitas(prev => prev.filter(v => v.Id !== visitaId));
 
         } catch (error) {
-            console.error("Error al eliminar visita:", error);
             setVisitaSaveError(error.message || "Error de red al intentar eliminar la visita.");
         }
     };
@@ -416,7 +425,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                     errorMessage = errorData.message || errorMessage;
                 // eslint-disable-next-line no-unused-vars
                 } catch (_error) {
-                    console.error("Respuesta de error no-JSON:", await response.text());
+                    // No need to log the response text if the user asked to remove all logs
                 }
 
                 throw new Error(errorMessage);
@@ -435,20 +444,10 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             window.URL.revokeObjectURL(url);
         })
         .catch(error => {
-            console.error('Error al descargar el anexo:', error);
             setVisitaSaveError(`Fallo en la descarga: ${error.message || 'Error de red.'}`);
         });
     };
 
-    // ---------------------------------------------------------------------
-    // LÓGICA DE ELIMINACIÓN CORREGIDA (Usa la función con la clave correcta)
-    // ---------------------------------------------------------------------
-    const loggedInUserId = getLoggedInUserId();
-    // Solo el usuario logueado con ID 10 puede eliminar clientes
-    const canDelete = loggedInUserId === 10; 
-    // ---------------------------------------------------------------------
-
-    const isVisitaEditing = editingVisitaId !== null;
 
     const renderDetail = (key, label) => (
         <div className="detail-item">
@@ -467,12 +466,10 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             )}
         </div>
     );
-    
-    // ---------------------------------------------------------------------
-    // FUNCIÓN DE RENDERIZADO (Se mantiene igual a la versión anterior)
-    // ---------------------------------------------------------------------
+
     const renderFileInput = (visitaId, currentAnexoValue) => {
         const file = fileAttachment[visitaId];
+        // Determinar qué nombre de archivo mostrar: el nuevo archivo subido o el existente
         const fileNameToDisplay = file ? file.name : (currentAnexoValue || null);
         const inputId = `file-input-${visitaId}`;
 
@@ -483,18 +480,19 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                     id={inputId}
                     className="input-anexo-hidden" 
                     onChange={(e) => handleFileChange(e, visitaId)}
-                    onClick={(e) => e.target.value = null}
-                    disabled={isEditing} // El cliente no se edita, solo las visitas.
+                    // Esto permite seleccionar el mismo archivo después de una cancelación
+                    onClick={(e) => e.target.value = null} 
+                    disabled={isEditing} 
                 />
                 <label htmlFor={inputId} className="boton-secundario-file">
                     {fileNameToDisplay ? 'Cambiar' : 'Subir Archivo'}
                 </label>
                 {fileNameToDisplay && (
                     <span className="file-name-display" title={fileNameToDisplay}>
+                        {/* Muestra un nombre corto con puntos suspensivos si es muy largo */}
                         {fileNameToDisplay.length > 15 ? `${fileNameToDisplay.substring(0, 12)}...` : fileNameToDisplay}
                     </span>
                 )}
-                {/* Opción para quitar el archivo actualmente seleccionado si es un archivo nuevo */}
                 {file && (
                      <button 
                         type="button" 
@@ -508,7 +506,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             </span>
         );
     };
-    // ---------------------------------------------------------------------
 
 
     return (
@@ -775,7 +772,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                                             )}
                                         </td>
                                         
-                                        {/* Columna de ACCIONES (Editar/Guardar/Cancelar y Eliminar) */}
                                         <td colSpan={canDelete ? "2" : "1"}> 
                                             <div className="table-actions">
                                                 {editingVisitaId === visita.Id ? (

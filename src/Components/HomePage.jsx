@@ -91,7 +91,6 @@ export default function HomePage() {
             setClientes(data);
 
         } catch (e) {
-            console.error("Error al obtener clientes:", e);
             setError(e.message);
         } finally {
             setLoading(false);
@@ -181,7 +180,6 @@ export default function HomePage() {
                 handleClientDelete(clientId);
                 alert(`Cliente "${clientName}" eliminado con éxito.`);
             } catch (error) {
-                console.error("Error al eliminar el cliente:", error);
                 alert(`Error al eliminar el cliente: ${error.message}`);
             }
         }
@@ -276,7 +274,6 @@ export default function HomePage() {
                             <th>Teléfono</th>
                             <th>Ciudad</th>
                             <th>Correo Electrónico</th>
-                            <th>Comercial Asignado</th> 
                             {isAdmin && <th><i className="fas fa-trash-alt" title='Borrar'></i></th>} 
                         </tr>
                     </thead>
@@ -300,7 +297,6 @@ export default function HomePage() {
                                 <td>{cliente.Telefono}</td>
                                 <td>{cliente.Ciudad}</td>
                                 <td>{cliente.Correo}</td>
-                                <td>{cliente.ComercialAsignado || 'Sin asignar'}</td> 
                                 {isAdmin && (
                                     <td style={{ textAlign: 'center' }}>
                                         <button 
