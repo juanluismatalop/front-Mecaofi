@@ -8,6 +8,7 @@ import './HomePage.css';
 import logo from '../assets/Logo-Mecaofi.jpg';
 
 const CLIENTES_API_URL = 'http://localhost:3000/api/clientes'; 
+const VISITAS_API_URL = 'http://localhost:3000/api/visitas';
 const ADMIN_ID = 10; 
 
 export default function HomePage() {
@@ -47,7 +48,7 @@ export default function HomePage() {
             setUserId(id); 
             
             if (storedUserName) {
-                setUserName(storedUserName); 
+                 setUserName(storedUserName); 
             } else if (id === ADMIN_ID) {
                  setUserName("Administrador");
             } else {
@@ -196,6 +197,59 @@ export default function HomePage() {
         localStorage.removeItem('comercialName');
         navigate('/');
     };
+    
+    const handleDownloadRutasHoy = async () => {
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            alert("No estás autenticado.");
+            navigate('/');
+            return;
+        }
+
+        try {
+            const response = await fetch(`${VISITAS_API_URL}/pdf-hoy`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                },
+            });
+
+            if (response.status === 404) {
+                 alert('No se encontraron visitas programadas para hoy.');
+                 return;
+            }
+
+            if (!response.ok) {
+                throw new Error(`Error ${response.status}: ${response.statusText}`);
+            }
+            
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'Rutas_del_Dia.pdf';
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="(.+)"/);
+                if (match && match[1]) {
+                    filename = match[1];
+                }
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+        } catch (e) {
+            console.error('Error durante la descarga del PDF:', e);
+            alert(`Error al descargar las rutas: ${e.message}`);
+        }
+    };
+
 
     if (loading || !authChecked) {
         return <div className="loading-message">Cargando listado de clientes...</div>;
@@ -241,8 +295,16 @@ export default function HomePage() {
                     <label htmlFor="localidad" className="form__label">Localidad</label>
                 </div>
                 
+                <button 
+                    className='boton2' 
+                    onClick={handleDownloadRutasHoy}
+                    style={{ backgroundColor: '#4CAF50', color: 'white', fontWeight: 'bold' }}
+                >
+                    Descargar Rutas Hoy 📅
+                </button>
+                
                 {isAdmin && (
-                    <button className='boton2' onClick={() => setShowComercialModal(true)}>
+                    <button className='boton2' onClick={() => setShowComercialModal(true)} style={{ marginLeft: '10px' }}>
                         Registrar Comercial
                     </button>
                 )}
@@ -340,7 +402,7 @@ export default function HomePage() {
                 show={showManageComercialsModal}
                 onClose={() => setShowManageComercialsModal(false)}
                 currentUserId={userId} 
-                adminId={ADMIN_ID}     
+                adminId={ADMIN_ID} 
             />
         </div>
     );
