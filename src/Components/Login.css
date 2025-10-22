@@ -52,10 +52,6 @@ body {
     margin: 20px auto 20px auto; 
 }
 
-.imagen:hover {
-    transform: scale(1.05)
-}
-
 .container input {
     padding: 10px;
     margin-bottom: 15px;

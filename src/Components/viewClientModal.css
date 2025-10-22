@@ -27,7 +27,7 @@
 .modal-content-view {
     padding: 1.5rem 2rem;
     background: white;
-    /* 🔥 CAMBIO: Aumento del ancho máximo para dar más espacio a la tabla */
+    /* CAMBIO: Aumento del ancho máximo para dar más espacio a la tabla */
     max-width: 1100px; 
     width: 95%;
     border-radius: 20px;
@@ -36,11 +36,11 @@
     animation: fadeIn 0.3s ease both;
     position: relative; 
     font-family: 'Poppins', sans-serif;
-    /* 🔥 CAMBIO: Mayor altura máxima y configuración Flexbox */
+    /* CLAVE: Mayor altura máxima y configuración Flexbox */
     max-height: 95vh; 
-    overflow-y: hidden; /* El scroll será interno de la tabla */
+    overflow-y: hidden; 
     
-    /* 🔥 CLAVE: Habilitar Flexbox en columna */
+    /* CLAVE: Habilitar Flexbox en columna */
     display: flex;
     flex-direction: column;
 }
@@ -53,7 +53,7 @@
     border-bottom: 1px solid #eee;
     margin-bottom: 1rem;
     position: relative;
-    flex-shrink: 0; /* No permite que el header se achique/agranden por flex */
+    flex-shrink: 0; 
 }
 
 /* Botón de cerrar (similar al .x anterior) */
@@ -75,6 +75,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    margin: 30px;
 }
 
 .boton-cerrar:hover {
@@ -103,16 +104,16 @@
 /* Grid de detalles del cliente */
 .client-details-grid {
     display: grid;
-    /* 🔥 CAMBIO CLAVE: 3 columnas para compactar los datos arriba */
-    grid-template-columns: repeat(3, 1fr); 
-    gap: 15px 30px; 
-    margin-bottom: 25px;
-    flex-shrink: 0; /* Asegura que no crezca, mantiene los datos arriba */
+    /* 🔥 CAMBIO CLAVE 1: 4 columnas para compactar los datos en 2 líneas visuales */
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 8px 20px; /* Reducción de espacio */
+    margin-bottom: 15px; /* Reducción de espacio */
+    flex-shrink: 0; 
 }
 
 .detail-item {
-    /* 🔥 CAMBIO: Reducido de 8px a 6px para hacerlo más "chiquitico" */
-    padding: 6px 0; 
+    /* 🔥 CAMBIO: Reducido de 8px a 3px para hacerlo más compacto */
+    padding: 3px 0; 
     border-bottom: 1px dashed #ddd;
     display: flex;
     flex-direction: column;
@@ -131,7 +132,7 @@
 }
 
 .detail-item.full-row {
-    /* Ocupa las 3 columnas */
+    /* Ocupa las 4 columnas */
     grid-column: 1 / -1; 
 }
 
@@ -146,9 +147,11 @@
 
 /* Tabla de Visitas */
 .table-container-view {
-    /* 🔥 CLAVE: Permite que la tabla ocupe todo el espacio restante */
+    /* CLAVE: Permite que la tabla ocupe todo el espacio restante */
     flex-grow: 1; 
-    min-height: 0; /* Necesario para que flex-grow funcione bien */
+    min-height: 0; 
+    /* 🔥 CAMBIO CLAVE 2: Altura máxima limitada a unas ~10 filas (450px - 550px) */
+    max-height: 55vh; 
     overflow-y: auto; /* Permite scroll solo en la tabla */
     
     overflow-x: auto;

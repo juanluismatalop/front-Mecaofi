@@ -224,7 +224,7 @@ export default function HomePage() {
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
-                    <label htmlFor="cliente" className="form__label">Cliente/Contacto/Comercial</label>
+                    <label htmlFor="cliente" className="form__label">Cliente</label>
                 </div>
                 
                 <div className="form__group field" style={{flexGrow: 1}}>

@@ -75,7 +75,44 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
 
                 const data = await response.json();
                 
-                setVisitas(data.sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha))); 
+                // --- LÓGICA DE ORDENAMIENTO (Prioriza ProximaFecha futura) ---
+                const now = new Date();
+                // Establecer la hora a medianoche para comparar solo el día (>= hoy)
+                now.setHours(0, 0, 0, 0); 
+                
+                const sortedData = data.sort((a, b) => {
+                    const nextDateA = a.ProximaFecha ? new Date(a.ProximaFecha) : null;
+                    const nextDateB = b.ProximaFecha ? new Date(b.ProximaFecha) : null;
+                    
+                    // Consideramos futura si es igual o posterior al día de hoy (medianoche)
+                    const isAFuture = nextDateA && nextDateA >= now;
+                    const isBFuture = nextDateB && nextDateB >= now;
+
+                    // 1. Ambos tienen ProximaFecha futura: El más cercano va primero (ascendente)
+                    if (isAFuture && isBFuture) {
+                        return nextDateA.getTime() - nextDateB.getTime();
+                    }
+                    
+                    // 2. Solo A tiene ProximaFecha futura: A va primero
+                    if (isAFuture) {
+                        return -1; // A es menor, va primero
+                    }
+                    
+                    // 3. Solo B tiene ProximaFecha futura: B va primero
+                    if (isBFuture) {
+                        return 1; // B es menor, va primero
+                    }
+
+                    // 4. Ninguno tiene ProximaFecha futura (o no tienen ProximaFecha): 
+                    // Ordenar por Fecha de Visita (la más reciente primero, descendente)
+                    const visitaDateA = new Date(a.Fecha);
+                    const visitaDateB = new Date(b.Fecha);
+                    
+                    return visitaDateB.getTime() - visitaDateA.getTime();
+                });
+
+                setVisitas(sortedData);
+                // --- FIN DE LA LÓGICA DE ORDENAMIENTO ---
                 
             } catch (error) { 
                 setErrorVisitas(error.message || "Error al cargar las visitas.");
@@ -89,6 +126,8 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
 
     useEffect(() => {
         if (cliente) {
+            // Se inicializa el estado de edición con todos los datos del cliente,
+            // incluyendo los que no se renderizan como inputs pero que son necesarios para el PUT.
             setEditedClient({ ...cliente });
         }
     }, [cliente]);
@@ -145,6 +184,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 throw new Error(errorData.message || "Fallo al guardar los datos del cliente.");
             }
 
+            // Llama a la función de actualización con los datos guardados
             if (onClientUpdate) {
                 onClientUpdate({...editedClient, 
                     IdComercial: cliente.IdComercial,
@@ -189,7 +229,9 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         setEditedClient(prev => ({ ...prev, [name]: value }));
     };
     
-
+    // ... (El resto de las funciones de manejo de visitas se mantienen igual)
+    // ...
+    
     const handleAddVisita = () => {
         if (isEditing) return;
         setEditedVisita({
@@ -245,7 +287,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         formData.append('Observaciones', editedVisita.Observaciones);
         
         if (file) {
-            formData.append('anexoFile', file); // Usa 'anexoFile'
+            formData.append('anexoFile', file); 
         }
 
         try {
@@ -275,12 +317,37 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 ...editedVisita, 
                 Id: data.Id || data.id, 
                 NombreCliente: cliente.Nombre, 
-                // Aseguramos que la visita local tenga el IdComercial del cliente 
                 IdComercial: cliente.IdComercial, 
                 Anexo: data.Anexo || (file ? file.name : null) 
             };
             
-            setVisitas(prev => [newVisita, ...prev].sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha))); 
+            const now = new Date();
+            now.setHours(0, 0, 0, 0); 
+            
+            setVisitas(prev => [newVisita, ...prev].sort((a, b) => {
+                const nextDateA = a.ProximaFecha ? new Date(a.ProximaFecha) : null;
+                const nextDateB = b.ProximaFecha ? new Date(b.ProximaFecha) : null;
+                
+                const isAFuture = nextDateA && nextDateA >= now;
+                const isBFuture = nextDateB && nextDateB >= now;
+
+                if (isAFuture && isBFuture) {
+                    return nextDateA.getTime() - nextDateB.getTime();
+                }
+                
+                if (isAFuture) {
+                    return -1;
+                }
+                
+                if (isBFuture) {
+                    return 1;
+                }
+
+                const visitaDateA = new Date(a.Fecha);
+                const visitaDateB = new Date(b.Fecha);
+                
+                return visitaDateB.getTime() - visitaDateA.getTime();
+            })); 
             
             setEditingVisitaId(null);
             setEditedVisita({});
@@ -321,7 +388,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         const formData = new FormData();
         formData.append('IdCliente', editedVisita.IdCliente); 
         formData.append('Fecha', editedVisita.Fecha); 
-        // Sugerir el IdComercial del cliente al backend
         if (cliente.IdComercial) { 
             formData.append('IdComercial', cliente.IdComercial); 
         }
@@ -352,13 +418,39 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             const responseData = await response.json();
             const updatedAnexoStatus = responseData.Anexo || editedVisita.Anexo || (file ? file.name : null);
 
+            const now = new Date();
+            now.setHours(0, 0, 0, 0); 
+            
             setVisitas(prev => prev.map(v => v.Id === visitaId ? { 
                 ...v, 
                 Fecha: editedVisita.Fecha,
                 ProximaFecha: editedVisita.ProximaFecha || null,
                 Observaciones: editedVisita.Observaciones,
                 Anexo: updatedAnexoStatus 
-            } : v).sort((a, b) => new Date(b.Fecha) - new Date(a.Fecha)));
+            } : v).sort((a, b) => {
+                const nextDateA = a.ProximaFecha ? new Date(a.ProximaFecha) : null;
+                const nextDateB = b.ProximaFecha ? new Date(b.ProximaFecha) : null;
+                
+                const isAFuture = nextDateA && nextDateA >= now;
+                const isBFuture = nextDateB && nextDateB >= now;
+
+                if (isAFuture && isBFuture) {
+                    return nextDateA.getTime() - nextDateB.getTime();
+                }
+                
+                if (isAFuture) {
+                    return -1;
+                }
+                
+                if (isBFuture) {
+                    return 1;
+                }
+
+                const visitaDateA = new Date(a.Fecha);
+                const visitaDateB = new Date(b.Fecha);
+                
+                return visitaDateB.getTime() - visitaDateA.getTime();
+            }));
 
             setEditingVisitaId(null);
             setEditedVisita({});
@@ -469,7 +561,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
 
     const renderFileInput = (visitaId, currentAnexoValue) => {
         const file = fileAttachment[visitaId];
-        // Determinar qué nombre de archivo mostrar: el nuevo archivo subido o el existente
         const fileNameToDisplay = file ? file.name : (currentAnexoValue || null);
         const inputId = `file-input-${visitaId}`;
 
@@ -480,7 +571,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                     id={inputId}
                     className="input-anexo-hidden" 
                     onChange={(e) => handleFileChange(e, visitaId)}
-                    // Esto permite seleccionar el mismo archivo después de una cancelación
                     onClick={(e) => e.target.value = null} 
                     disabled={isEditing} 
                 />
@@ -489,7 +579,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 </label>
                 {fileNameToDisplay && (
                     <span className="file-name-display" title={fileNameToDisplay}>
-                        {/* Muestra un nombre corto con puntos suspensivos si es muy largo */}
                         {fileNameToDisplay.length > 15 ? `${fileNameToDisplay.substring(0, 12)}...` : fileNameToDisplay}
                     </span>
                 )}
@@ -559,7 +648,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                                 >
                                     Añadir Visita
                                 </button>
-                                <button className="boton-cerrar" onClick={onClose} aria-label="Cerrar">&times;</button>
+                                <button className="boton-secundario" onClick={onClose} aria-label="Cerrar">Cerrar</button>
                             </>
                         )}
                     </div>
@@ -567,8 +656,10 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 
                 {saveError && <p className="error-message-modal">{saveError}</p>}
                 
+                {/* 🔥 MODIFICACIÓN CLAVE: Reorganización del GRID de 4 columnas para compactar datos */}
                 <div className="client-details-grid">
                     
+                    {/* PRIMERA LÍNEA VISUAL (4 columnas) */}
                     <div className="detail-item">
                         <strong>Comercial Asignado:</strong>
                         <span>
@@ -576,67 +667,37 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                             {cliente.IdComercial ? ` (ID: ${cliente.IdComercial})` : ''}
                         </span>
                     </div>
-
-                    <div className="detail-item full-row">
-                        <strong>Persona de Contacto:</strong>
-                        {isEditing ? (
-                            <input
-                                type="text"
-                                name="PersonaContacto"
-                                value={editedClient.PersonaContacto || ''}
-                                onChange={handleChange}
-                                className="editable-input full-width-input"
-                                disabled={isVisitaEditing}
-                            />
-                        ) : (
-                            <span>{cliente.PersonaContacto || 'N/A'}</span>
-                        )}
-                    </div>
-                    
+                    {renderDetail('PersonaContacto', 'Persona de Contacto')} 
                     {renderDetail('Telefono', 'Teléfono Principal')}
                     {renderDetail('Correo', 'Correo Principal')}
+                    
+                    {/* SEGUNDA LÍNEA VISUAL (4 columnas) */}
                     {renderDetail('Telefono2', 'Teléfono Secundario')}
                     {renderDetail('Correo2', 'Correo Secundario')}
-                    
+                    {renderDetail('Ciudad', 'Ciudad')}
+                    {renderDetail('Provincia', 'Provincia')}
+
+                    {/* TERCERA LÍNEA VISUAL (Full Row) - Dirección */}
                     <div className="detail-item full-row">
                         <strong>Dirección Completa:</strong>
                         {isEditing ? (
-                            <span className="address-inputs-group">
-                                <input
-                                    type="text"
-                                    name="Direccion"
-                                    value={editedClient.Direccion || ''}
-                                    onChange={handleChange}
-                                    placeholder="Dirección"
-                                    className="editable-input inline-input"
-                                    disabled={isVisitaEditing}
-                                />
-                                <input
-                                    type="text"
-                                    name="Ciudad"
-                                    value={editedClient.Ciudad || ''}
-                                    onChange={handleChange}
-                                    placeholder="Ciudad"
-                                    className="editable-input inline-input"
-                                    disabled={isVisitaEditing}
-                                />
-                                <input
-                                    type="text"
-                                    name="Provincia"
-                                    value={editedClient.Provincia || ''}
-                                    onChange={handleChange}
-                                    placeholder="Provincia"
-                                    className="editable-input inline-input"
-                                    disabled={isVisitaEditing}
-                                />
-                            </span>
+                            <input
+                                type="text"
+                                name="Direccion"
+                                value={editedClient.Direccion || ''}
+                                onChange={handleChange}
+                                placeholder="Dirección"
+                                className="editable-input"
+                                disabled={isVisitaEditing}
+                            />
                         ) : (
-                            <span>{cliente.Direccion}{cliente.Ciudad ? `, ${cliente.Ciudad}` : ''}{cliente.Provincia ? `, ${cliente.Provincia}` : ''}</span>
+                            <span>{cliente.Direccion || 'N/A'}</span>
                         )}
                     </div>
+                    
+                    <hr className="divider full-row" />
                 </div>
 
-                <hr className="divider" />
 
                 <h3>Historial de Visitas ({visitas.length})</h3>
 
@@ -644,7 +705,8 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 {errorVisitas && <p className="error-message-modal">{errorVisitas}</p>}
                 {visitaSaveError && <p className="error-message-modal">{visitaSaveError}</p>}
 
-                <div className="table-container-view">
+                {/* Este contenedor ahora tiene un max-height fijo y overflow-y: auto en CSS */}
+                <div className="table-container-view"> 
                     <table className="visitas-table">
                         <thead>
                             <tr>
@@ -706,6 +768,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                                             </button>
                                         </div>
                                     </td>
+                                
                                 </tr>
                             )}
                             

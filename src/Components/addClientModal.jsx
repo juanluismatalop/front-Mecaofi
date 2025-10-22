@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react'; 
 import './addClientModal.css';
 
+// ⚠️ Note: For better security, ADMIN_ID should be replaced by a role/flag 
+// received from the server (e.g., in the JWT token or localStorage).
 const ADMIN_ID = 10; 
 const CLIENTES_API_URL = 'http://localhost:3000/api/clientes';
 const COMERCIALES_API_URL = 'http://localhost:3000/api/comercial'; 
 
+// Updated: Less restrictive email validation (allows any TLD with >= 2 characters)
+const isValidEmail = (email) => {
+    if (!email) return true; 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i; 
+    return emailRegex.test(email);
+};
+
 export default function AddClientModal ({ show, onClose, onClientAdded }){
         
-    const loggedInComercialId = parseInt(localStorage.getItem('comercialId'), 10);
+    const rawComercialId = localStorage.getItem('comercialId');
+    const loggedInComercialId = parseInt(rawComercialId, 10) || 0; 
     const isAdmin = loggedInComercialId === ADMIN_ID;
 
     const [comercialesList, setComercialesList] = useState([]);
@@ -29,8 +39,6 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
 
     const [formData, setFormData] = useState(initialFormData);
 
-
-    // LÓGICA DE CARGA DE COMERCIALES
     useEffect(() => {
         if (!show || !isAdmin) {
             setComercialesList([]);
@@ -48,7 +56,6 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
             }
 
             try {
-                // 🚨 CORRECCIÓN CLAVE: Se añade el header de Authorization con el token.
                 const response = await fetch(COMERCIALES_API_URL, {
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${token}` },
@@ -57,18 +64,17 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                 if (!response.ok) {
                     const errorText = await response.text();
                     console.error("Error API de Comerciales:", response.status, errorText); 
-                    throw new Error(`Fallo al obtener la lista de comerciales (Código ${response.status}). Ver consola.`);
+                    throw new Error(`Fallo al obtener la lista de comerciales (Código ${response.status}). Por favor, vuelve a iniciar sesión.`);
                 }
 
                 const data = await response.json();
                 setComercialesList(data);
                 
-                if (data.length === 1 && isAdmin) {
-                    setFormData(prev => ({ ...prev, IdComercial: '' }));
-                } else if (data.length > 0 && !isAdmin) {
-                    setFormData(prev => ({ ...prev, IdComercial: loggedInComercialId }));
+                // Lógica simplificada: si solo hay un comercial para el Admin, lo preselecciona
+                if (isAdmin && data.length === 1) {
+                    setFormData(prev => ({ ...prev, IdComercial: data[0].Id }));
                 }
-                
+
             } catch (e) {
                 console.error("Error al obtener comerciales:", e);
                 setError(e.message || "Error al cargar la lista de comerciales.");
@@ -78,20 +84,26 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
         fetchComerciales();
     }, [show, isAdmin, loggedInComercialId]);
 
-    // Lógica para limpiar el formulario al cerrar/abrir
     useEffect(() => {
         if (show) {
             setFormData(initialFormData); 
             setError(null);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [show]); 
 
 
-    // MANEJO DE FORMULARIO
     const handleChange = (e) => {
         const { name, value } = e.target;
-        const finalValue = name === 'IdComercial' ? (value === '' ? '' : parseInt(value, 10)) : value;
+        let finalValue = value;
+
+        if (name === 'Telefono' || name === 'Telefono2') {
+            const numericValue = value.replace(/[^0-9]/g, '');
+            finalValue = numericValue.slice(0, 9); 
+        }
+
+        if (name === 'IdComercial') {
+            finalValue = value === '' ? '' : parseInt(value, 10);
+        }
         
         setFormData(prev => ({ ...prev, [name]: finalValue }));
     };
@@ -107,7 +119,29 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
             setSubmitting(false);
             return;
         }
-        
+
+        if (formData.Telefono.length !== 9) {
+             setError("El Teléfono Principal debe tener exactamente 9 dígitos.");
+             setSubmitting(false);
+             return;
+        }
+        if (formData.Telefono2 && formData.Telefono2.length > 0 && formData.Telefono2.length !== 9) {
+             setError("El Teléfono Secundario debe tener 9 dígitos o estar vacío.");
+             setSubmitting(false);
+             return;
+        }
+
+        if (formData.Correo && !isValidEmail(formData.Correo)) {
+            setError("El Correo Principal no tiene un formato válido.");
+            setSubmitting(false);
+            return;
+        }
+        if (formData.Correo2 && formData.Correo2.length > 0 && !isValidEmail(formData.Correo2)) {
+            setError("El Correo Secundario no tiene un formato válido.");
+            setSubmitting(false);
+            return;
+        }
+
         const clientData = {
             Nombre: formData.Nombre,
             PersonaContacto: formData.PersonaContacto,
@@ -142,8 +176,8 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                 onClientAdded(newClient); 
             }
 
-            onClose(); 
             setFormData(initialFormData); 
+            setError(null);
             
         } catch (err) {
             console.error("Error al crear cliente:", err);
@@ -158,7 +192,7 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
     }
 
     return (
-        <div className="modal-backdrop" onClick={onClose}>
+        <div className="modal-backdrop"> 
             <div className="modal-content" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                     <h2>Añadir Nuevo Cliente</h2>
@@ -182,7 +216,6 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                             />
                         </div>
                         
-                        {/* SELECTOR DE COMERCIALES (Solo visible para Admin) */}
                         {isAdmin && (
                             <div className="form-group required">
                                 <label htmlFor="IdComercial">Asignar Comercial</label>
@@ -216,13 +249,38 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                     </div>
 
                     <div className="form-group-row">
-                        <div className="form-group required">
+                        <div className={`form-group required ${formData.Telefono.length > 0 && formData.Telefono.length !== 9 ? 'has-error' : ''}`}>
                             <label htmlFor="Telefono">Teléfono Principal</label>
-                            <input type="tel" id="Telefono" name="Telefono" value={formData.Telefono} onChange={handleChange} required />
+                            <input 
+                                type="tel" 
+                                id="Telefono" 
+                                name="Telefono" 
+                                value={formData.Telefono} 
+                                onChange={handleChange} 
+                                required
+                                maxLength={9} 
+                                pattern="\d{9}"
+                                inputMode="numeric"
+                            />
+                            {formData.Telefono.length > 0 && formData.Telefono.length !== 9 && (
+                                <small className="input-error-tip">Debe tener 9 dígitos.</small>
+                            )}
                         </div>
-                        <div className="form-group">
+                        <div className={`form-group ${formData.Telefono2.length > 0 && formData.Telefono2.length !== 9 ? 'has-error' : ''}`}>
                             <label htmlFor="Telefono2">Teléfono Secundario</label>
-                            <input type="tel" id="Telefono2" name="Telefono2" value={formData.Telefono2} onChange={handleChange} />
+                            <input 
+                                type="tel" 
+                                id="Telefono2" 
+                                name="Telefono2" 
+                                value={formData.Telefono2} 
+                                onChange={handleChange} 
+                                maxLength={9}
+                                pattern="\d{9}"
+                                inputMode="numeric"
+                            />
+                            {formData.Telefono2.length > 0 && formData.Telefono2.length !== 9 && (
+                                <small className="input-error-tip">Debe tener 9 dígitos o estar vacío.</small>
+                            )}
                         </div>
                     </div>
 
