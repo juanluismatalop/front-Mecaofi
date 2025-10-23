@@ -12,10 +12,8 @@ const formatDate = (dateString, forInput = false) => {
     if (isNaN(date.getTime())) return 'N/A';
 
     if (forInput) {
-        // Formato YYYY-MM-DD para inputs de tipo date
         return date.toISOString().slice(0, 10);
     }
-    // Formato DD/MM/YYYY
     return date.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
 };
 
@@ -62,8 +60,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             const token = localStorage.getItem('token'); 
 
             try {
-                // Esta llamada siempre trae TODAS las visitas de este cliente,
-                // independientemente del comercial logueado.
                 const response = await fetch(`${VISITAS_API_BASE_URL_CLIENTE}/${cliente.Id}`, { 
                     method: 'GET',
                     headers: { 'Authorization': `Bearer ${token}` },
@@ -75,36 +71,28 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
 
                 const data = await response.json();
                 
-                // --- LÓGICA DE ORDENAMIENTO (Prioriza ProximaFecha futura) ---
                 const now = new Date();
-                // Establecer la hora a medianoche para comparar solo el día (>= hoy)
                 now.setHours(0, 0, 0, 0); 
                 
                 const sortedData = data.sort((a, b) => {
                     const nextDateA = a.ProximaFecha ? new Date(a.ProximaFecha) : null;
                     const nextDateB = b.ProximaFecha ? new Date(b.ProximaFecha) : null;
                     
-                    // Consideramos futura si es igual o posterior al día de hoy (medianoche)
                     const isAFuture = nextDateA && nextDateA >= now;
                     const isBFuture = nextDateB && nextDateB >= now;
 
-                    // 1. Ambos tienen ProximaFecha futura: El más cercano va primero (ascendente)
                     if (isAFuture && isBFuture) {
                         return nextDateA.getTime() - nextDateB.getTime();
                     }
                     
-                    // 2. Solo A tiene ProximaFecha futura: A va primero
                     if (isAFuture) {
-                        return -1; // A es menor, va primero
+                        return -1; 
                     }
                     
-                    // 3. Solo B tiene ProximaFecha futura: B va primero
                     if (isBFuture) {
-                        return 1; // B es menor, va primero
+                        return 1;
                     }
 
-                    // 4. Ninguno tiene ProximaFecha futura (o no tienen ProximaFecha): 
-                    // Ordenar por Fecha de Visita (la más reciente primero, descendente)
                     const visitaDateA = new Date(a.Fecha);
                     const visitaDateB = new Date(b.Fecha);
                     
@@ -112,7 +100,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 });
 
                 setVisitas(sortedData);
-                // --- FIN DE LA LÓGICA DE ORDENAMIENTO ---
                 
             } catch (error) { 
                 setErrorVisitas(error.message || "Error al cargar las visitas.");
@@ -126,8 +113,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
 
     useEffect(() => {
         if (cliente) {
-            // Se inicializa el estado de edición con todos los datos del cliente,
-            // incluyendo los que no se renderizan como inputs pero que son necesarios para el PUT.
             setEditedClient({ ...cliente });
         }
     }, [cliente]);
@@ -259,7 +244,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             [visitaId]: file
         }));
 
-        // Actualiza el nombre del anexo en el estado de edición para mostrarlo
         setEditedVisita(prev => ({
             ...prev,
             Anexo: file ? file.name : (visitas.find(v => v.Id === visitaId)?.Anexo || false)
@@ -664,20 +648,17 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                         <strong>Comercial Asignado:</strong>
                         <span>
                             {cliente.NombreComercial || 'N/A'} 
-                            {cliente.IdComercial ? ` (ID: ${cliente.IdComercial})` : ''}
                         </span>
                     </div>
                     {renderDetail('PersonaContacto', 'Persona de Contacto')} 
                     {renderDetail('Telefono', 'Teléfono Principal')}
                     {renderDetail('Correo', 'Correo Principal')}
                     
-                    {/* SEGUNDA LÍNEA VISUAL (4 columnas) */}
                     {renderDetail('Telefono2', 'Teléfono Secundario')}
                     {renderDetail('Correo2', 'Correo Secundario')}
                     {renderDetail('Ciudad', 'Ciudad')}
                     {renderDetail('Provincia', 'Provincia')}
 
-                    {/* TERCERA LÍNEA VISUAL (Full Row) - Dirección */}
                     <div className="detail-item full-row">
                         <strong>Dirección Completa:</strong>
                         {isEditing ? (

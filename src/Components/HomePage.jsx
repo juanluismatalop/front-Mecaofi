@@ -9,11 +9,13 @@ import './HomePage.css';
 import logo from '../assets/Logo-Mecaofi.jpg';
 
 const CLIENTES_API_URL = 'http://localhost:3000/api/clientes'; 
-const VISITAS_API_URL = 'http://localhost:3000/api/visitas';
+const COMERCIALES_API_URL = 'http://localhost:3000/api/comercial/';
 const ADMIN_ID = 10; 
 
 export default function HomePage() {
     const [clientes, setClientes] = useState([]);
+    const [comerciales, setComerciales] = useState([]);
+    const [selectedComercialId, setSelectedComercialId] = useState('all');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [showModal, setShowModal] = useState(false);
@@ -33,6 +35,13 @@ export default function HomePage() {
     
     const navigate = useNavigate();
 
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('comercialId');
+        localStorage.removeItem('comercialName');
+        navigate('/');
+    };
+    
     useEffect(() => {
         const token = localStorage.getItem('token');
         const storedUserId = localStorage.getItem('comercialId');
@@ -60,15 +69,9 @@ export default function HomePage() {
         
         setAuthChecked(true);
     }, []); 
-
+    
     const fetchClientes = async () => {
         const token = localStorage.getItem('token');
-        
-        if (!token) {
-            setLoading(false);
-            return; 
-        }
-
         setLoading(true);
         setError(null);
 
@@ -95,42 +98,89 @@ export default function HomePage() {
         } catch (e) {
             setError(e.message);
         } finally {
-            setLoading(false);
         }
     };
 
+    const fetchComerciales = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        try {
+            const response = await fetch(COMERCIALES_API_URL, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                console.error(`Error ${response.status} al obtener comerciales: ${response.statusText}`);
+                return; 
+            }
+
+            const data = await response.json();
+            setComerciales(data);
+        } catch (e) {
+            console.error("Error en la petición de comerciales:", e.message);
+        }
+    };
+    
     useEffect(() => {
         if (authChecked && userId !== null) {
-            fetchClientes();
+            const token = localStorage.getItem('token');
+            const isAdmin = userId === ADMIN_ID;
+
+            if (!token) {
+                setLoading(false);
+                return;
+            }
+            
+            const promises = [fetchClientes()];
+            if (isAdmin) {
+                promises.push(fetchComerciales());
+            }
+
+            Promise.all(promises).finally(() => {
+                setLoading(false);
+            });
+
         } else if (authChecked && userId === null) {
             setLoading(false);
         }
     }, [authChecked, userId]);
-
+    
     const clientesFiltrados = useMemo(() => {
         const lowerSearchTerm = searchTerm.toLowerCase().trim();
         const lowerSearchCity = searchCity.toLowerCase().trim();
         
         let clientesVisibles = clientes;
+        const isAdmin = userId === ADMIN_ID;
 
+        if (isAdmin && selectedComercialId !== 'all') {
+            const filterId = parseInt(selectedComercialId, 10);
+            clientesVisibles = clientesVisibles.filter(cliente => cliente.IdComercial === filterId);
+        }
+        
         if (userId !== null && userId !== ADMIN_ID) {
-             clientesVisibles = clientes.filter(cliente => cliente.IdComercial === userId);
+             clientesVisibles = clientesVisibles.filter(cliente => cliente.IdComercial === userId);
         }
         
         return clientesVisibles.filter(cliente => {
+            const comercialName = cliente.NombreComercial || '';
+
             const matchesSearchTerm = 
                 (cliente.Nombre && cliente.Nombre.toLowerCase().includes(lowerSearchTerm)) ||
                 (cliente.PersonaContacto && cliente.PersonaContacto.toLowerCase().includes(lowerSearchTerm)) ||
-                (cliente.ComercialAsignado && cliente.ComercialAsignado.toLowerCase().includes(lowerSearchTerm));
-
+                (comercialName.toLowerCase().includes(lowerSearchTerm));
 
             const matchesCity = cliente.Ciudad && cliente.Ciudad.toLowerCase().includes(lowerSearchCity);
             
             return matchesSearchTerm && matchesCity;
         });
 
-    }, [clientes, searchTerm, searchCity, userId]); 
-
+    }, [clientes, searchTerm, searchCity, userId, selectedComercialId]); 
+    
     
     const handleClientAdded = () => {
         fetchClientes(); 
@@ -139,6 +189,7 @@ export default function HomePage() {
 
     const handleComercialRegistered = () => {
         setShowComercialModal(false);
+        fetchComerciales(); 
     }
     
     const handleClientUpdate = (updatedClient) => {
@@ -189,13 +240,6 @@ export default function HomePage() {
     const handleViewClient = (cliente) => {
         setSelectedClient(cliente);
         setShowViewModal(true);
-    };
-
-    const handleLogout = () => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('comercialId');
-        localStorage.removeItem('comercialName');
-        navigate('/');
     };
     
     const handleOpenDownloadModal = () => {
@@ -279,7 +323,31 @@ export default function HomePage() {
             <h2>Listado de Clientes de {userName} ({clientesFiltrados.length})</h2>
 
             <div className="table-container">
-                <button className='boton' onClick={() => setShowModal(true)}>Añadir Cliente</button>
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '15px' }}>
+                    <button className='boton' onClick={() => setShowModal(true)}>Añadir Cliente</button>
+                    
+                    {isAdmin && (
+                        <div className="form__group field" style={{ width: '250px' }}>
+                            <select
+                                className="form__field"
+                                name="comercialFilter"
+                                id="comercialFilter"
+                                value={selectedComercialId}
+                                onChange={(e) => setSelectedComercialId(e.target.value)}
+                                style={{ paddingTop: '20px', paddingBottom: '5px', color: '#0f37a8' }}
+                            >
+                                <option value="all">Todos los comerciales</option>
+                                {comerciales.map(comercial => (
+                                    <option key={comercial.Id} value={comercial.Id}>
+                                        {/* CORRECCIÓN: Usar comercial.Nombre que viene del backend */}
+                                        {comercial.Nombre} 
+                                    </option>
+                                ))}
+                            </select>
+                            <label htmlFor="comercialFilter" className="form__label" style={{ top: '8px' }}>Filtrar por Comercial</label>
+                        </div>
+                    )}
+                </div>
                 <table className="clientes-table">
                     <thead>
                         <tr>
@@ -288,6 +356,11 @@ export default function HomePage() {
                             <th>Teléfono</th>
                             <th>Ciudad</th>
                             <th>Correo Electrónico</th>
+                            
+                            {isAdmin && (
+                                <th>Comercial Asignado</th> 
+                            )}
+                            
                             {isAdmin && <th><i className="fas fa-trash-alt" title='Borrar'></i></th>} 
                         </tr>
                     </thead>
@@ -311,6 +384,11 @@ export default function HomePage() {
                                 <td>{cliente.Telefono}</td>
                                 <td>{cliente.Ciudad}</td>
                                 <td>{cliente.Correo}</td>
+                                
+                                {isAdmin && (
+                                    <td>{cliente.NombreComercial || 'Sin Asignar'}</td> 
+                                )}
+                                
                                 {isAdmin && (
                                     <td style={{ textAlign: 'center' }}>
                                         <button 
