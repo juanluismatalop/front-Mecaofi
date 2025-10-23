@@ -1,45 +1,52 @@
 :root {
-	--vs-primary: 29 92 255;
+    --vs-primary: 29 92 255;
     --color-error: 220 53 69; 
+    --color-success: 40 167 69; /* Añadir color verde para el botón de 'Ver' */
+    --color-info: 0 123 255; /* Añadir color azul para el botón de 'Descargar' */
 }
 
+/* --- Modal Backdrop (Fondo) --- */
 .modal-backdrop {
-	position: fixed;
-	top: 0;
-	left: 0;
-	width: 100vw;
-	height: 100vh;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	animation: fadeIn 1s ease both;
-	background: rgb(255 255 255 / 40%);
-	z-index: 1000; 
-	backdrop-filter: blur(20px);
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease both; /* Animación más rápida para UX */
+    background: rgb(255 255 255 / 40%);
+    z-index: 1000; 
+    backdrop-filter: blur(8px); /* Reducido el blur, 20px es muy pesado */
 }
 
+/* --- Modal Content (Contenido de la Caja) --- */
 .modal-content {
-	padding: 1rem 3rem;
-	background: white;
-	max-width: 550px; 
+    padding: 1rem 3rem;
+    background: white;
+    max-width: 550px; 
     width: 90%;
-	padding-top: 2rem;
-	border-radius: 20px;
-	border: 0;
-	box-shadow: 0 5px 30px 0 rgb(0 0 0 / 10%);
-	animation: fadeIn 1s ease both;
+    padding-top: 2rem;
+    border-radius: 20px;
+    border: 0;
+    box-shadow: 0 5px 30px 0 rgb(0 0 0 / 10%);
+    animation: fadeIn 0.3s ease both; /* Usar la misma animación */
     position: relative; 
     font-family: 'Poppins', sans-serif;
 }
 
+/* --- Header y Botón de Cierre (X) --- */
 .modal-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     padding-bottom: 1rem;
     position: relative;
+    border-bottom: 1px solid #eee; /* Añadir línea separadora */
 }
 
+/* Estilo base para el botón de cierre dentro del header */
 .modal-header .boton2 {
     filter: grayscale(1);
     border: none;
@@ -59,19 +66,22 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    color: #333; /* Añadir color por defecto */
+}
 
-    &:hover {
-        filter: grayscale(0);
-        transform: scale(1.1);
-    }
+/* Estado hover para el botón de cierre (Desanidado de Sass) */
+.modal-header .boton2:hover {
+    filter: grayscale(0);
+    transform: scale(1.1);
 }
 
 .modal-content h2 {
-	font-weight: 600;
-	font-size: 2rem;
-	margin: 0; 
+    font-weight: 600;
+    font-size: 2rem;
+    margin: 0; 
 }
 
+/* --- Mensajes de Feedback --- */
 .error-message-modal {
     font-size: 1rem;
     line-height: 1.3rem;
@@ -79,8 +89,17 @@
     color: rgb(var(--color-error));
     font-weight: 600;
 }
+/* Estilo para el mensaje de éxito (si lo usas) */
+.success-message-modal { 
+    font-size: 1rem;
+    line-height: 1.3rem;
+    padding: 0.5rem 0;
+    color: rgb(var(--color-success));
+    font-weight: 600;
+}
 
 
+/* --- Formulario y Campos --- */
 .modal-content form {
     display: flex;
     flex-direction: column;
@@ -125,6 +144,15 @@
     flex: 1;
 }
 
+/* Mensaje de párrafo dentro de form-group (como el del mes) */
+.form-group p {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 5px;
+}
+
+/* --- Botones de Acción (modal-actions y submit-button/boton2) --- */
+
 .modal-actions {
     display: flex;
     justify-content: flex-end;
@@ -134,59 +162,80 @@
     margin-top: 15px;
 }
 
-.boton2 {
+/* Estilo base para todos los botones principales de acción (boton2) */
+.boton2, .submit-button {
     display: inline-block;
-	font-size: 0.8rem;
+    font-size: 0.9rem; /* Ligeramente más grande para mejor tacto */
     font-weight: 600;
-	color: rgba(15, 55, 168);
-	background: rgb(var(--vs-primary) / 100%);
-	padding: 10px 20px;
-	border-radius: 10px;
-	transition: background-color 0.1s ease;
-	box-sizing: border-box;
-	transition: all 0.25s ease;
-	border: 0;
-	cursor: pointer;
-	box-shadow: 0 5px 15px -5px rgb(var(--vs-primary) / 50%);
-
-    &:hover:not(:disabled) {
-		box-shadow: 0 10px 15px -5px rgb(var(--vs-primary) / 50%);
-		transform: translateY(-2px);
-	}
-
-    &:disabled {
-        background: #ccc;
-        cursor: not-allowed;
-        box-shadow: none;
-        transform: none;
-    }
+    color: white; /* Color de texto blanco por defecto en submit-button */
+    background: rgb(var(--vs-primary));
+    padding: 10px 20px;
+    border-radius: 10px;
+    transition: all 0.25s ease;
+    box-sizing: border-box;
+    border: 0;
+    cursor: pointer;
+    /* Sombras por defecto */
+    box-shadow: 0 5px 15px -5px rgb(var(--vs-primary) / 50%);
 }
 
-.modal-actions .boton2:nth-child(2) {
+/* Estado hover para boton2 (Desanidado de Sass) */
+.boton2:hover:not(:disabled), .submit-button:hover:not(:disabled) {
+    box-shadow: 0 10px 15px -5px rgb(var(--vs-primary) / 50%);
+    transform: translateY(-2px);
+}
+
+/* Estado disabled para boton2 (Desanidado de Sass) */
+.boton2:disabled, .submit-button:disabled {
+    background: #ccc !important; /* Importante para sobreescribir estilos inline */
+    color: #666 !important;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+}
+
+/* Estilo para el botón secundario (Cerrar o el segundo botón en modal-actions) */
+.modal-actions .boton2:nth-child(2),
+.modal-actions .submit-button:nth-child(2) {
     background: #e0e0e0;
     color: #333 !important;
     box-shadow: 0 5px 15px -5px rgb(0 0 0 / 10%);
-
-    &:hover:not(:disabled) {
-        background: #d0d0d0;
-        box-shadow: 0 10px 15px -5px rgb(0 0 0 / 15%);
-    }
 }
 
+/* Hover para el botón secundario (Desanidado de Sass) */
+.modal-actions .boton2:nth-child(2):hover:not(:disabled),
+.modal-actions .submit-button:nth-child(2):hover:not(:disabled) {
+    background: #d0d0d0;
+    box-shadow: 0 10px 15px -5px rgb(0 0 0 / 15%);
+}
 
+/* Estilos específicos para los botones del modal de RUTAS */
+/* Botón 'Descargar PDF' (Azul) - Se le aplica el estilo primario o se sobreescribe */
+.submit-button[style*="007bff"] { 
+    background-color: rgb(var(--color-info)) !important; 
+    box-shadow: 0 5px 15px -5px rgb(var(--color-info) / 50%);
+}
+.submit-button[style*="007bff"]:hover:not(:disabled) {
+    box-shadow: 0 10px 15px -5px rgb(var(--color-info) / 50%);
+}
+
+/* Botón 'Ver en Pantalla' (Verde) - Se le aplica el estilo de éxito */
+.submit-button[style*="28a745"] { 
+    background-color: rgb(var(--color-success)) !important;
+    box-shadow: 0 5px 15px -5px rgb(var(--color-success) / 50%);
+}
+.submit-button[style*="28a745"]:hover:not(:disabled) {
+    box-shadow: 0 10px 15px -5px rgb(var(--color-success) / 50%);
+}
+
+/* --- Animación --- */
 @keyframes fadeIn {
-	from {
-		opacity: 0;
-        transform: translateY(20px); 
-	}
-	to {
-		opacity: 1;
+    from {
+        opacity: 0;
+        transform: translateY(10px); 
+    }
+    to {
+        opacity: 1;
         transform: translateY(0);
-	}
-}
-
-.form-group p {
-    font-size: 0.8rem;
-    color: #666;
-    margin-top: 5px;
+    }
 }
