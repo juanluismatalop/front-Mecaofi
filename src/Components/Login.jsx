@@ -53,7 +53,8 @@ export default function Login(){
             alert("No se pudo conectar con el servidor.");
         }
     }
-
+    console.log(comercial);
+    
     return(
         <div>
             <div className="container">

@@ -4,6 +4,7 @@ import AddClientModal from './addClientModal';
 import ViewClientModal from './viewClientModal';
 import AddComercialModal from './addComercialModal';
 import ManageComercialsModal from './ManageComercialsModal'; 
+import DownloadRutasModal from './DownloadRutasModal';
 import './HomePage.css';
 import logo from '../assets/Logo-Mecaofi.jpg';
 
@@ -22,6 +23,7 @@ export default function HomePage() {
     const [selectedClient, setSelectedClient] = useState(null); 
     const [showComercialModal, setShowComercialModal] = useState(false); 
     const [showManageComercialsModal, setShowManageComercialsModal] = useState(false); 
+    const [showDownloadModal, setShowDownloadModal] = useState(false);
 
     const [searchTerm, setSearchTerm] = useState('');
     const [searchCity, setSearchCity] = useState('');
@@ -57,7 +59,6 @@ export default function HomePage() {
         } 
         
         setAuthChecked(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []); 
 
     const fetchClientes = async () => {
@@ -104,7 +105,6 @@ export default function HomePage() {
         } else if (authChecked && userId === null) {
             setLoading(false);
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authChecked, userId]);
 
     const clientesFiltrados = useMemo(() => {
@@ -198,56 +198,8 @@ export default function HomePage() {
         navigate('/');
     };
     
-    const handleDownloadRutasHoy = async () => {
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-            alert("No estás autenticado.");
-            navigate('/');
-            return;
-        }
-
-        try {
-            const response = await fetch(`${VISITAS_API_URL}/pdf-hoy`, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-            });
-
-            if (response.status === 404) {
-                 alert('No se encontraron visitas programadas para hoy.');
-                 return;
-            }
-
-            if (!response.ok) {
-                throw new Error(`Error ${response.status}: ${response.statusText}`);
-            }
-            
-            const contentDisposition = response.headers.get('Content-Disposition');
-            let filename = 'Rutas_del_Dia.pdf';
-            if (contentDisposition) {
-                const match = contentDisposition.match(/filename="(.+)"/);
-                if (match && match[1]) {
-                    filename = match[1];
-                }
-            }
-
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            
-            a.remove();
-            window.URL.revokeObjectURL(url);
-
-        } catch (e) {
-            console.error('Error durante la descarga del PDF:', e);
-            alert(`Error al descargar las rutas: ${e.message}`);
-        }
+    const handleOpenDownloadModal = () => {
+        setShowDownloadModal(true);
     };
 
 
@@ -297,10 +249,10 @@ export default function HomePage() {
                 
                 <button 
                     className='boton2' 
-                    onClick={handleDownloadRutasHoy}
+                    onClick={handleOpenDownloadModal}
                     style={{ backgroundColor: '#4CAF50', color: 'white', fontWeight: 'bold' }}
                 >
-                    Descargar Rutas Hoy 📅
+                    Descargar Rutas 📅
                 </button>
                 
                 {isAdmin && (
@@ -404,6 +356,13 @@ export default function HomePage() {
                 currentUserId={userId} 
                 adminId={ADMIN_ID} 
             />
+            
+            <DownloadRutasModal 
+                show={showDownloadModal}
+                onClose={() => setShowDownloadModal(false)}
+                userId={userId}
+                ADMIN_ID={ADMIN_ID}
+            /> 
         </div>
     );
 }

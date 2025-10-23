@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './addClientModal.css'; 
+import ChangePasswordModal from './ChangePasswordModal'; // ¡IMPORTANTE!
 
 const API_COMERCIALES_URL = 'http://localhost:3000/api/comercial';
 const API_REASSIGN_URL = 'http://localhost:3000/api/comercial/reassign'; 
@@ -9,10 +10,15 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     
+    // Estados para Reasignación
     const [clientsToReassign, setClientsToReassign] = useState(null); 
     const [commercialToDeleteId, setCommercialToDeleteId] = useState(null);
     const [commercialToDeleteName, setCommercialToDeleteName] = useState('');
     const [newComercialId, setNewComercialId] = useState(''); 
+
+    // Nuevos estados para Cambio de Contraseña
+    const [showPasswordModal, setShowPasswordModal] = useState(false);
+    const [commercialToChangePass, setCommercialToChangePass] = useState({ id: null, name: '' });
 
     useEffect(() => {
         if (show) {
@@ -31,7 +37,11 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
         setError(null);
     };
 
-
+    const handleOpenChangePassword = (comercialId, comercialName) => {
+        setCommercialToChangePass({ id: comercialId, name: comercialName });
+        setShowPasswordModal(true);
+    };
+    
     const fetchComerciales = async () => {
         const token = localStorage.getItem('token');
         setLoading(true);
@@ -185,7 +195,7 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
     if (clientsToReassign) {
         return (
             <div className="modal-backdrop">
-                <div className="modal-content" style={{ maxWidth: '700px', padding: '30px' }}>
+                <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px', padding: '30px' }}>
                     <h3 style={{color: 'rgb(var(--color-error))', borderBottom: '2px solid #eee', paddingBottom: '10px'}}>
                         ⚠️ Reasignación de Clientes Necesaria
                     </h3>
@@ -225,14 +235,14 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
 
                     <div style={{ marginTop: '30px', textAlign: 'right', display: 'flex', justifyContent: 'flex-end', gap: '15px' }}>
                         <button 
-                            className='boton-secundario' 
+                            className='boton2' 
                             onClick={resetReassignmentState}
                             style={{ backgroundColor: '#6c757d', color: 'white', border: 'none' }} 
                         >
                             Cancelar
                         </button>
                         <button 
-                            className='boton-alerta' 
+                            className='delete-button' 
                             onClick={handleReassignAndRemove}
                             disabled={!newComercialId || availableComerciales.length === 0}
                         >
@@ -246,8 +256,8 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
 
     // Renderizado del modal de gestión principal
     return (
-        <div className="modal-backdrop">
-            <div className="modal-content" style={{ maxWidth: '600px' }}>
+        <div className="modal-backdrop" onClick={onClose}>
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px' }}>
                 <h3>Gestionar Comerciales ({visibleComerciales.length})</h3>
                 <hr/>
                 
@@ -259,17 +269,30 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
                         <thead>
                             <tr>
                                 <th>Nombre</th>
-                                <th>Acción</th>
+                                <th style={{width: '240px', textAlign: 'center'}}>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             {visibleComerciales.map(comercial => (
                                 <tr key={comercial.Id}>
                                     <td>{comercial.Nombre || comercial.Comercial}</td> 
-                                    <td>
+                                    <td style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                                        <button
+                                            className='boton2'
+                                            onClick={(e) => { 
+                                                e.stopPropagation();
+                                                handleOpenChangePassword(comercial.Id, comercial.Nombre || comercial.Comercial);
+                                            }}
+                                            style={{ backgroundColor: '#007bff', color: 'white' }}
+                                        >
+                                            Cambiar Contraseña
+                                        </button>
                                         <button 
                                             className='delete-button' 
-                                            onClick={() => handleDeleteComercial(comercial.Id, comercial.Nombre || comercial.Comercial)}
+                                            onClick={(e) => { 
+                                                e.stopPropagation();
+                                                handleDeleteComercial(comercial.Id, comercial.Nombre || comercial.Comercial)
+                                            }}
                                             disabled={comercial.Id === currentUserId}
                                             title={comercial.Id === currentUserId ? "No puedes eliminarte a ti mismo" : "Eliminar Comercial"}
                                         >
@@ -294,6 +317,14 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
                     <button className='boton2' onClick={onClose}>Cerrar</button>
                 </div>
             </div>
+            
+            {/* Componente del modal de cambio de contraseña */}
+            <ChangePasswordModal
+                show={showPasswordModal}
+                onClose={() => setShowPasswordModal(false)}
+                comercialId={commercialToChangePass.id}
+                comercialName={commercialToChangePass.name}
+            />
         </div>
     );
 }
