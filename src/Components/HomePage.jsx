@@ -337,9 +337,8 @@ export default function HomePage() {
                                 style={{ paddingTop: '20px', paddingBottom: '5px', color: '#0f37a8' }}
                             >
                                 <option value="all">Todos los comerciales</option>
-                                {comerciales.map(comercial => (
+                                {comerciales.filter(comercial => comercial.Id !== 10).map(comercial => (
                                     <option key={comercial.Id} value={comercial.Id}>
-                                        {/* CORRECCIÓN: Usar comercial.Nombre que viene del backend */}
                                         {comercial.Nombre} 
                                     </option>
                                 ))}

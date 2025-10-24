@@ -10,13 +10,11 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     
-    // Estados para Reasignación
     const [clientsToReassign, setClientsToReassign] = useState(null); 
     const [commercialToDeleteId, setCommercialToDeleteId] = useState(null);
     const [commercialToDeleteName, setCommercialToDeleteName] = useState('');
     const [newComercialId, setNewComercialId] = useState(''); 
 
-    // Nuevos estados para Cambio de Contraseña
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [commercialToChangePass, setCommercialToChangePass] = useState({ id: null, name: '' });
 
@@ -72,12 +70,10 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
     };
 
     const handleDeleteComercial = async (comercialId, comercialName) => {
-        // Asegura que no se pueda eliminar al administrador (Id 10)
         if (comercialId === adminId) {
             alert("El administrador principal no puede ser eliminado.");
             return;
         }
-        // Asegura que el comercial no pueda eliminarse a sí mismo
         if (comercialId === currentUserId) {
             alert("No puedes eliminar tu propia cuenta mientras estás logueado.");
             return;
@@ -106,7 +102,6 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
                 if (contentType && contentType.includes("application/json")) {
                     try {
                         data = await response.json();
-                    // eslint-disable-next-line no-unused-vars
                     } catch (e) {
                         data = {}; 
                     }
@@ -120,7 +115,6 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
                     setCommercialToDeleteId(comercialId);
                     setCommercialToDeleteName(comercialName);
                     
-                    // Preselecciona el primer comercial disponible, o cadena vacía si no hay más.
                     setNewComercialId(availableComerciales[0]?.Id.toString() || ''); 
 
                     setError(null); 
@@ -140,7 +134,6 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
         }
     };
     
-    // FUNCIÓN PARA REALIZAR LA REASIGNACIÓN Y ELIMINACIÓN
     const handleReassignAndRemove = async () => {
         setError(null);
         if (!newComercialId) {
@@ -182,16 +175,13 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
         }
     };
     
-    // Lista de comerciales disponibles para reasignar (excluye el que se va a eliminar Y el admin)
     const availableComerciales = comerciales.filter(c => c.Id !== commercialToDeleteId && c.Id !== adminId);
-    // Lista visible en la tabla de gestión (excluye el admin)
     const visibleComerciales = comerciales.filter(c => c.Id !== adminId);
 
     if (!show) {
         return null;
     }
     
-    // Renderizado del modal de reasignación
     if (clientsToReassign) {
         return (
             <div className="modal-backdrop">
@@ -254,7 +244,6 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
         );
     }
 
-    // Renderizado del modal de gestión principal
     return (
         <div className="modal-backdrop" onClick={onClose}>
             <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px' }}>

@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react'; 
 import './addClientModal.css';
 
-// ⚠️ Note: For better security, ADMIN_ID should be replaced by a role/flag 
-// received from the server (e.g., in the JWT token or localStorage).
 const ADMIN_ID = 10; 
 const CLIENTES_API_URL = 'http://localhost:3000/api/clientes';
 const COMERCIALES_API_URL = 'http://localhost:3000/api/comercial'; 
 
-// Updated: Less restrictive email validation (allows any TLD with >= 2 characters)
 const isValidEmail = (email) => {
     if (!email) return true; 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i; 
