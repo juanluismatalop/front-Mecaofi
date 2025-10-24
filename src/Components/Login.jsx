@@ -11,8 +11,6 @@ export default function Login(){
     async function Entrar(){
         setError(''); 
         try {
-            // Nota: Aquí se usa '/api/comercial/login' (singular). 
-            // Si tu servidor usa '/api/comerciales/login' (plural), esto fallará con 404.
             const response = await fetch('http://localhost:3000/api/comercial/login', {
                 method: 'POST',
                 headers: {
@@ -24,33 +22,28 @@ export default function Login(){
                 }),
             });
             
-            // Verificamos si la respuesta fue OK (200). Si no es OK, 
-            // el intento de response.json() podría fallar si es un 404 que devuelve HTML.
+            // CORRECCIÓN: Leer el cuerpo de la respuesta SOLO UNA VEZ
+            const data = await response.json(); 
+
             if (!response.ok) {
-                // Intenta leer el error como JSON, si falla, usa un mensaje genérico.
-                const errorData = (await response.text()).includes('{') ? await response.json() : { message: 'Error de red o servidor no reconocido.' };
-                
-                const errorMessage = errorData.message || `Error del servidor (Código ${response.status}).`;
-                setError(errorMessage);
-                alert(`Error al iniciar sesión: ${errorMessage}`);
-                return; // Salir de la función
+                // Si la respuesta no es OK (ej. 401), 'data' contiene el error del servidor.
+                const errorMessage = data.message || `Error del servidor (Código ${response.status}).`;
+                throw new Error(errorMessage);
             }
 
-            const data = await response.json();
-
-            // 🚨 CORRECCIÓN CLAVE: Guardamos directamente el valor del input (estado 'comercial')
+            // Si es exitoso (200)
             localStorage.setItem('token', data.token);
             localStorage.setItem('comercialId', data.comercialId);
             
-            // Garantizamos que el nombre guardado es el que el usuario tecleó.
+            // Guardamos el nombre del usuario para mostrarlo en HomePage
             localStorage.setItem('comercialName', comercial); 
             
             navigate("/Home"); 
 
         } catch (err) {
-            console.error("Error de red o servidor:", err);
-            setError("No se pudo conectar con el servidor. ¿Está el backend corriendo?");
-            alert("No se pudo conectar con el servidor.");
+            console.error("Error al iniciar sesión:", err.message);
+            setError(err.message || "No se pudo conectar con el servidor. ¿Está el backend corriendo?");
+            alert(err.message || "No se pudo conectar con el servidor.");
         }
     }
     

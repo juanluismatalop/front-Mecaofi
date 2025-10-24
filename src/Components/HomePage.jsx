@@ -182,14 +182,22 @@ export default function HomePage() {
     }, [clientes, searchTerm, searchCity, userId, selectedComercialId]); 
     
     
-    const handleClientAdded = () => {
-        fetchClientes(); 
+    const handleClientAdded = (newClient) => {
+        // CORREGIDO: Añadir el nuevo cliente localmente y cerrar el modal. 
+        // ¡No se llama a fetchClientes()!
+        if (newClient) {
+            setClientes(prevClientes => [newClient, ...prevClientes]); 
+        }
         setShowModal(false);
     };
 
-    const handleComercialRegistered = () => {
-        setShowComercialModal(false);
-        fetchComerciales(); 
+    const handleComercialRegistered = (newComercial) => {
+        // CORREGIDO: Añadir el nuevo comercial localmente. 
+        // ¡No se llama a fetchComerciales()! El modal se cerrará solo con su temporizador.
+        if (newComercial) {
+            setComerciales(prevComerciales => [...prevComerciales, newComercial]);
+        }
+        // No llamamos a setShowComercialModal(false) para no interrumpir el temporizador del modal.
     }
     
     const handleClientUpdate = (updatedClient) => {

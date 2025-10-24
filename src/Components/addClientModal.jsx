@@ -67,7 +67,6 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                 const data = await response.json();
                 setComercialesList(data);
                 
-                // Lógica simplificada: si solo hay un comercial para el Admin, lo preselecciona
                 if (isAdmin && data.length === 1) {
                     setFormData(prev => ({ ...prev, IdComercial: data[0].Id }));
                 }
@@ -169,12 +168,12 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
 
             const newClient = await response.json();
 
+            // Llama a la función del padre para actualizar la lista (sin recargar)
             if (onClientAdded) {
                 onClientAdded(newClient); 
             }
 
-            setFormData(initialFormData); 
-            setError(null);
+            // El padre se encarga de llamar a setShowModal(false)
             
         } catch (err) {
             console.error("Error al crear cliente:", err);

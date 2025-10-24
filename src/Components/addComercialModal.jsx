@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import './addClientModal.css';
 
 const ADMIN_ID = 10;
@@ -8,43 +8,45 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
     const loggedInComercialId = parseInt(localStorage.getItem('comercialId'), 10);
     const isAdmin = loggedInComercialId === ADMIN_ID;
 
-    const initialFormData = {
+    const initialFormData = useMemo(() => ({
         Comercial: '', 
         Pass: '', 
         Correo: '', 
-    };
+    }), []); 
 
     const [formData, setFormData] = useState(initialFormData);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
+    const [newComercial, setNewComercial] = useState(null); // Estado para el nuevo comercial
 
-    // --- Efecto para resetear el estado y evitar renderizar si no es Admin ---
+    // Efecto 1: Resetear el formulario cuando el modal se abre
     useEffect(() => {
         if (show) {
-            // Si el modal se muestra, resetear todo
             setFormData(initialFormData);
             setError(null);
             setSuccessMessage(null);
+            setNewComercial(null);
         }
-        
-        // Cierra el modal automáticamente después de 2 segundos si hay éxito
-        if (successMessage) {
+    }, [show, initialFormData]);
+
+    // Efecto 2: Manejar el cierre automático y notificar al padre al tener éxito
+    useEffect(() => {
+        if (successMessage && newComercial) {
             const timer = setTimeout(() => {
-                // Notifica al padre (si existe) y luego cierra el modal
+                // Pasa el objeto del nuevo comercial al padre para actualización local
                 if (onComercialAdded) {
-                    onComercialAdded();
+                    onComercialAdded(newComercial);
                 }
                 onClose();
             }, 2000); 
 
-            return () => clearTimeout(timer); // Limpiar el timer si el componente se desmonta
+            return () => clearTimeout(timer);
         }
-
-    }, [show, successMessage, onClose, onComercialAdded]);
+    }, [successMessage, onClose, onComercialAdded, newComercial]);
 
     if (!show || !isAdmin) {
-        return null; // No renderiza si no debe mostrarse o si no es administrador
+        return null;
     }
 
     const handleChange = (e) => {
@@ -52,8 +54,9 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
             ...formData,
             [e.target.name]: e.target.value,
         });
-        setError(null);
-        setSuccessMessage(null); // Limpiar mensajes al empezar a escribir de nuevo
+        // Limpiamos mensajes al escribir para permitir la edición
+        if (error) setError(null);
+        if (successMessage) setSuccessMessage(null);
     };
 
     const handleSubmit = async (e) => {
@@ -62,7 +65,6 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
         setError(null);
         setSuccessMessage(null);
         
-        // Validación de campos simples
         if (!formData.Comercial.trim() || !formData.Pass.trim() || !formData.Correo.trim()) {
             setError("Todos los campos son obligatorios.");
             setSubmitting(false);
@@ -76,28 +78,23 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    // Incluir el token de autenticación
                     'Authorization': `Bearer ${token}`, 
                 },
                 body: JSON.stringify(formData), 
             });
 
-            // Leer el cuerpo de la respuesta ANTES de verificar response.ok
-            // Esto es crucial para poder leer mensajes de error del servidor (4xx, 5xx)
             const responseData = await response.json(); 
 
             if (!response.ok) {
-                // Si response.ok es false, lanza un error con el mensaje del servidor
                 throw new Error(responseData.message || `Error ${response.status}: El servidor rechazó la solicitud.`);
             }
 
             // Éxito:
+            setNewComercial(responseData); // Guarda el objeto devuelto por la API
             setSuccessMessage(responseData.message || "Comercial registrado exitosamente. Cerrando...");
-            // El useEffect se encargará de llamar a onComercialAdded() y onClose() después de 2 segundos.
             
         } catch (e) {
             console.error("Error al crear comercial:", e);
-            // Mostrar el error capturado (ya sea de la red o lanzado arriba)
             setError(e.message); 
         } finally {
             setSubmitting(false);
@@ -114,7 +111,6 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
                 
                 <form onSubmit={handleSubmit}>
                     
-                    {/* Campos de formulario */}
                     <div className="form-group">
                         <label htmlFor="Comercial">Nombre de Usuario*</label>
                         <input 
@@ -154,11 +150,9 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
                         />
                     </div>
                     
-                    {/* Mensajes de feedback */}
                     {error && <p className="error-message-modal">{error}</p>}
                     {successMessage && <p className="success-message-modal">{successMessage}</p>}
                     
-                    {/* Acciones */}
                     <div className="modal-actions">
                         <button type="submit" className='boton2' disabled={submitting} style={{ backgroundColor: '#28a745' }}>
                             {submitting ? 'Registrando...' : 'Registrar Comercial'}
