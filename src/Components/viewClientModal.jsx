@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import './viewClientModal.css';
 
-const CLIENTES_API_BASE_URL = 'http://localhost:3000/api/clientes'; 
-const VISITAS_API_BASE_URL_CLIENTE = 'http://localhost:3000/api/visitas/cliente'; 
-const VISITAS_API_BASE_URL = 'http://localhost:3000/api/visitas'; 
+const CLIENTES_API_BASE_URL = 'http://localhost:8000/api/clientes'; 
+const VISITAS_API_BASE_URL_CLIENTE = 'http://localhost:8000/api/visitas/cliente'; 
+const VISITAS_API_BASE_URL = 'http://localhost:8000/api/visitas'; 
 
 const formatDate = (dateString, forInput = false) => {
     if (!dateString) return 'N/A';
@@ -480,7 +480,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
     const handleDownloadAnexo = (filename) => {
         if (!filename) return; 
         const token = localStorage.getItem('token');
-        const urlDescarga = `${VISITAS_API_BASE_URL}/download/${filename}`;
+        const urlDescarga = `${VISITAS_API_BASE_URL}/anexo/${filename}`;
 
         setLoadingVisitas(true); 
 

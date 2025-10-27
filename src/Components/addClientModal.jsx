@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import './addClientModal.css';
 
 const ADMIN_ID = 10; 
-const CLIENTES_API_URL = 'http://localhost:3000/api/clientes';
-const COMERCIALES_API_URL = 'http://localhost:3000/api/comercial'; 
+const CLIENTES_API_URL = 'http://localhost:8000/api/clientes';
+const COMERCIALES_API_URL = 'http://localhost:8000/api/comerciales'; 
 
 const isValidEmail = (email) => {
     if (!email) return true; 
@@ -104,84 +104,90 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
         setFormData(prev => ({ ...prev, [name]: finalValue }));
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError(null);
-        setSubmitting(true);
-        const token = localStorage.getItem('token');
+    // ... (código anterior sin cambios)
 
-        if (!formData.IdComercial || formData.IdComercial === '') {
-            setError("Debe asignar un comercial.");
-            setSubmitting(false);
-            return;
-        }
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError(null);
+        setSubmitting(true);
+        const token = localStorage.getItem('token');
 
-        if (formData.Telefono.length !== 9) {
-             setError("El Teléfono Principal debe tener exactamente 9 dígitos.");
-             setSubmitting(false);
-             return;
-        }
-        if (formData.Telefono2 && formData.Telefono2.length > 0 && formData.Telefono2.length !== 9) {
-             setError("El Teléfono Secundario debe tener 9 dígitos o estar vacío.");
-             setSubmitting(false);
-             return;
-        }
+        if (!formData.IdComercial || formData.IdComercial === '') {
+            setError("Debe asignar un comercial.");
+            setSubmitting(false);
+            return;
+        }
 
-        if (formData.Correo && !isValidEmail(formData.Correo)) {
-            setError("El Correo Principal no tiene un formato válido.");
-            setSubmitting(false);
-            return;
-        }
-        if (formData.Correo2 && formData.Correo2.length > 0 && !isValidEmail(formData.Correo2)) {
-            setError("El Correo Secundario no tiene un formato válido.");
-            setSubmitting(false);
-            return;
-        }
+        if (formData.Telefono.length !== 9) {
+             setError("El Teléfono Principal debe tener exactamente 9 dígitos.");
+             setSubmitting(false);
+             return;
+        }
+        if (formData.Telefono2 && formData.Telefono2.length > 0 && formData.Telefono2.length !== 9) {
+             setError("El Teléfono Secundario debe tener 9 dígitos o estar vacío.");
+             setSubmitting(false);
+             return;
+        }
 
-        const clientData = {
-            Nombre: formData.Nombre,
-            PersonaContacto: formData.PersonaContacto,
-            Telefono: formData.Telefono, 
-            Telefono2: formData.Telefono2, 
-            Correo: formData.Correo, 
-            Correo2: formData.Correo2, 
-            Direccion: formData.Direccion,
-            Ciudad: formData.Ciudad,
-            Provincia: formData.Provincia,
-            IdComercial: formData.IdComercial,
-        };
+        if (formData.Correo && !isValidEmail(formData.Correo)) {
+            setError("El Correo Principal no tiene un formato válido.");
+            setSubmitting(false);
+            return;
+        }
+        if (formData.Correo2 && formData.Correo2.length > 0 && !isValidEmail(formData.Correo2)) {
+            setError("El Correo Secundario no tiene un formato válido.");
+            setSubmitting(false);
+            return;
+        }
 
-        try {
-            const response = await fetch(CLIENTES_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify(clientData)
-            });
+        const clientData = {
+            Nombre: formData.Nombre,
+            PersonaContacto: formData.PersonaContacto,
+            Telefono: formData.Telefono, 
+            Telefono2: formData.Telefono2, 
+            Correo: formData.Correo, 
+            Correo2: formData.Correo2, 
+            Direccion: formData.Direccion,
+            Ciudad: formData.Ciudad,
+            Provincia: formData.Provincia,
+            IdComercial: formData.IdComercial,
+        };
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || "Fallo al crear el cliente. Verifique los datos.");
-            }
+        try {
+            const response = await fetch(CLIENTES_API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(clientData)
+            });
 
-            const newClient = await response.json();
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || "Fallo al crear el cliente. Verifique los datos.");
+            }
 
-            // Llama a la función del padre para actualizar la lista (sin recargar)
-            if (onClientAdded) {
-                onClientAdded(newClient); 
-            }
+            // El cliente se ha creado con éxito.
+            
+            // Opcional: Ejecutar la función onClientAdded del componente padre
+            // Esto puede ser útil para cerrar el modal antes de la recarga
+            if (onClientAdded) {
+                // No necesitamos el newClient para la recarga completa
+                onClientAdded(); 
+            }
 
-            // El padre se encarga de llamar a setShowModal(false)
-            
-        } catch (err) {
-            console.error("Error al crear cliente:", err);
-            setError(err.message || "Error de red al intentar registrar.");
-        } finally {
-            setSubmitting(false);
-        }
-    };
+            // ¡AQUÍ ESTÁ EL CAMBIO!
+            // Forzar una recarga completa de la página para asegurar la actualización de la lista.
+            window.location.reload(); 
+            
+        } catch (err) {
+            console.error("Error al crear cliente:", err);
+            setError(err.message || "Error de red al intentar registrar.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
     
     if (!show) {
         return null;

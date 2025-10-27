@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './addClientModal.css'; // Usamos el mismo CSS para el estilo del modal
 
-const API_CHANGE_PASSWORD_URL = 'http://localhost:3000/api/comercial'; 
+const API_CHANGE_PASSWORD_URL = 'http://localhost:8000/api/comerciales'; 
 
 export default function ChangePasswordModal({ show, onClose, comercialId, comercialName }) {
     const [newPassword, setNewPassword] = useState('');

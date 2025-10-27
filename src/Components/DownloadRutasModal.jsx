@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import moment from 'moment';
 import './addClientModal.css';
 
-const VISITAS_API_URL = 'http://localhost:3000/api/visitas';
+const VISITAS_API_URL = 'http://localhost:8000/api/visitas';
 
 export default function DownloadRutasModal ({ show, onClose }) {
     const [selectionType, setSelectionType] = useState('day');

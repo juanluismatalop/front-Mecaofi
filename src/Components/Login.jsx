@@ -11,7 +11,7 @@ export default function Login(){
     async function Entrar(){
         setError(''); 
         try {
-            const response = await fetch('http://localhost:3000/api/comercial/login', {
+            const response = await fetch('http://localhost:8000/api/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

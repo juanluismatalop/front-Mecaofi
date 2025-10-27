@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import './addClientModal.css'; 
 import ChangePasswordModal from './ChangePasswordModal'; // ¡IMPORTANTE!
 
-const API_COMERCIALES_URL = 'http://localhost:3000/api/comercial';
-const API_REASSIGN_URL = 'http://localhost:3000/api/comercial/reassign'; 
+const API_COMERCIALES_URL = 'http://localhost:8000/api/comerciales';
+const API_REASSIGN_URL = 'http://localhost:8000/api/comerciales/reassign'; 
 
 export default function ManageComercialsModal({ show, onClose, currentUserId, adminId = 10 }) {
     const [comerciales, setComerciales] = useState([]);
@@ -102,6 +102,7 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
                 if (contentType && contentType.includes("application/json")) {
                     try {
                         data = await response.json();
+                    // eslint-disable-next-line no-unused-vars
                     } catch (e) {
                         data = {}; 
                     }

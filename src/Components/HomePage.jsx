@@ -8,8 +8,8 @@ import DownloadRutasModal from './DownloadRutasModal';
 import './HomePage.css';
 import logo from '../assets/Logo-Mecaofi.jpg';
 
-const CLIENTES_API_URL = 'http://localhost:3000/api/clientes'; 
-const COMERCIALES_API_URL = 'http://localhost:3000/api/comercial/';
+const CLIENTES_API_URL = 'http://localhost:8000/api/clientes'; 
+const COMERCIALES_API_URL = 'http://localhost:8000/api/comerciales/';
 const ADMIN_ID = 10; 
 
 export default function HomePage() {
@@ -98,6 +98,7 @@ export default function HomePage() {
         } catch (e) {
             setError(e.message);
         } finally {
+            //
         }
     };
 
