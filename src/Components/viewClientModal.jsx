@@ -1,63 +1,100 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import './viewClientModal.css';
 
-const CLIENTES_API_BASE_URL = 'http://localhost:8000/api/clientes'; 
-const VISITAS_API_BASE_URL_CLIENTE = 'http://localhost:8000/api/visitas/cliente'; 
-const VISITAS_API_BASE_URL = 'http://localhost:8000/api/visitas'; 
+// 1. Definición de Constantes de API (CRÍTICO: Asegura que el puerto 8000/api sea correcto)
+const API_BASE_URL = 'http://localhost:8000/api';
+const CLIENTES_API_BASE_URL = `${API_BASE_URL}/clientes`; 
+const VISITAS_API_BASE_URL_CLIENTE = `${API_BASE_URL}/visitas/cliente`; 
+const VISITAS_API_BASE_URL = `${API_BASE_URL}/visitas`; 
+const COMERCIALES_API_BASE_URL = `${API_BASE_URL}/comerciales`;
 
 const formatDate = (dateString, forInput = false) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return '';
     const date = new Date(dateString);
-    
-    if (isNaN(date.getTime())) return 'N/A';
-
-    if (forInput) {
-        return date.toISOString().slice(0, 10);
-    }
+    if (isNaN(date.getTime())) return '';
+    if (forInput) return date.toISOString().slice(0, 10);
     return date.toLocaleDateString('es-ES', { year: 'numeric', month: '2-digit', day: '2-digit' });
 };
 
-const getLoggedInUserId = () => {
+const getUserId = () => {
     const userIdString = localStorage.getItem('comercialId'); 
-    const userId = userIdString ? parseInt(userIdString, 10) : null;
-    
-    return userId;
+    return userIdString ? parseInt(userIdString, 10) : null;
 };
 
+const getToken = () => localStorage.getItem('token');
+
 export default function ViewClientModal({ show, onClose, cliente, onClientUpdate, onClientDelete }) {
+    
+    // Identificación de usuario y rol
+    const loggedInUserId = useMemo(() => getUserId(), []);
+    const isAdmin = useMemo(() => loggedInUserId === 10, [loggedInUserId]);
 
     const [visitas, setVisitas] = useState([]);
-    const [loadingVisitas, setLoadingVisitas] = useState(false);
-    const [errorVisitas, setErrorVisitas] = useState(null);
+    const [comerciales, setComerciales] = useState([]); // Almacena la lista de comerciales
     const [isEditing, setIsEditing] = useState(false);
     const [editedClient, setEditedClient] = useState({});
     const [saveError, setSaveError] = useState(null);
     
+    const [loadingVisitas, setLoadingVisitas] = useState(false);
     const [editingVisitaId, setEditingVisitaId] = useState(null); 
     const [editedVisita, setEditedVisita] = useState({});
     const [visitaSaveError, setVisitaSaveError] = useState(null);
     const [fileAttachment, setFileAttachment] = useState({}); 
 
-    // Obtener ID del usuario logueado
-    const loggedInUserId = getLoggedInUserId();
-    // Lógica para determinar si puede eliminar (ej: ID 10 es Admin)
-    const canDelete = loggedInUserId === 10; 
     const isVisitaEditing = editingVisitaId !== null;
+    const isNewVisita = editingVisitaId === 'NEW_VISIT';
+    
+    const canEditClient = isAdmin || editedClient.IdComercial === loggedInUserId;
+    const canDeleteClient = isAdmin;
 
     useEffect(() => {
-        setSaveError(null);
-        setVisitaSaveError(null);
-        setFileAttachment({}); 
+        if (cliente) {
+            setEditedClient({ ...cliente });
+            setIsEditing(false);
+            setSaveError(null);
+            setVisitaSaveError(null);
+            setEditingVisitaId(null);
+            setEditedVisita({});
+            setFileAttachment({});
+        }
+    }, [cliente]);
+
+    // 🚨 2. useEffect para Cargar Comerciales (Solo Admin)
+    useEffect(() => {
+        if (!show || !isAdmin) return;
+
+        const fetchComerciales = async () => {
+            const token = getToken();
+            try {
+                const response = await fetch(COMERCIALES_API_BASE_URL, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                });
+                if (!response.ok) throw new Error("No se pudieron cargar los comerciales.");
+                const data = await response.json();
+                
+                // Aseguramos que la respuesta tiene la estructura esperada (ej: [{Id: 1, Comercial: 'Nombre'}]
+                setComerciales(data);
+                
+            } catch (error) {
+                console.error("Error fetching comerciales:", error);
+                setSaveError("Error al cargar la lista de comerciales.");
+            }
+        };
         
+        fetchComerciales();
+    }, [show, isAdmin]);
+
+
+    useEffect(() => {
         if (!cliente || !cliente.Id) { 
             setVisitas([]);
             return;
         }
-
+        
         const fetchVisitas = async () => {
             setLoadingVisitas(true);
-            setErrorVisitas(null);
-            const token = localStorage.getItem('token'); 
+            const token = getToken(); 
 
             try {
                 const response = await fetch(`${VISITAS_API_BASE_URL_CLIENTE}/${cliente.Id}`, { 
@@ -65,10 +102,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                     headers: { 'Authorization': `Bearer ${token}` },
                 });
 
-                if (!response.ok) {
-                    throw new Error("No se pudieron cargar las visitas del cliente.");
-                }
-
+                if (!response.ok) throw new Error("No se pudieron cargar las visitas del cliente.");
                 const data = await response.json();
                 
                 const now = new Date();
@@ -81,49 +115,32 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                     const isAFuture = nextDateA && nextDateA >= now;
                     const isBFuture = nextDateB && nextDateB >= now;
 
-                    if (isAFuture && isBFuture) {
-                        return nextDateA.getTime() - nextDateB.getTime();
-                    }
-                    
-                    if (isAFuture) {
-                        return -1; 
-                    }
-                    
-                    if (isBFuture) {
-                        return 1;
-                    }
+                    if (isAFuture && isBFuture) return nextDateA.getTime() - nextDateB.getTime();
+                    if (isAFuture) return -1;
+                    if (isBFuture) return 1;
 
                     const visitaDateA = new Date(a.Fecha);
                     const visitaDateB = new Date(b.Fecha);
-                    
                     return visitaDateB.getTime() - visitaDateA.getTime();
                 });
 
                 setVisitas(sortedData);
                 
             } catch (error) { 
-                setErrorVisitas(error.message || "Error al cargar las visitas.");
+                setVisitaSaveError(error.message || "Error al cargar las visitas.");
             } finally {
                 setLoadingVisitas(false);
             }
         };
 
         fetchVisitas();
-    }, [show, cliente]);
-
-    useEffect(() => {
-        if (cliente) {
-            setEditedClient({ ...cliente });
-        }
     }, [cliente]);
 
-    if (!show || !cliente) {
-        return null;
-    }
-    
+
+    if (!show || !cliente) return null;
 
     const handleEditClient = () => {
-        if (editingVisitaId) return; 
+        if (isVisitaEditing) return; 
         setIsEditing(true);
         setSaveError(null);
     };
@@ -138,9 +155,14 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         setFileAttachment({}); 
     };
     
+    const handleClientChange = (e) => {
+        const { name, value } = e.target;
+        setEditedClient(prev => ({ ...prev, [name]: value }));
+    };
+
     const handleSaveClient = async () => {
         setSaveError(null);
-        const token = localStorage.getItem('token');
+        const token = getToken();
 
         const clientDataToSave = {
             Nombre: editedClient.Nombre,
@@ -151,12 +173,13 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             PersonaContacto: editedClient.PersonaContacto,
             Telefono2: editedClient.Telefono2,
             Correo2: editedClient.Correo2,
-            Direccion: editedClient.Direccion 
+            Direccion: editedClient.Direccion,
+            IdComercial: isAdmin ? editedClient.IdComercial : cliente.IdComercial 
         };
 
         try {
             const response = await fetch(`${CLIENTES_API_BASE_URL}/${editedClient.Id}`, {
-                method: 'PUT', 
+                method: 'PUT', // Usamos PUT para actualizar cliente
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
@@ -169,12 +192,9 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 throw new Error(errorData.message || "Fallo al guardar los datos del cliente.");
             }
 
-            // Llama a la función de actualización con los datos guardados
             if (onClientUpdate) {
-                onClientUpdate({...editedClient, 
-                    IdComercial: cliente.IdComercial,
-                    NombreComercial: cliente.NombreComercial
-                }); 
+                const updatedComercial = comerciales.find(c => c.Id === editedClient.IdComercial)?.Comercial || cliente.NombreComercial;
+                onClientUpdate({...editedClient, NombreComercial: updatedComercial}); 
             }
             setIsEditing(false);
         } catch (error) {
@@ -183,11 +203,9 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
     };
 
     const handleDeleteClient = async () => {
-        if (!window.confirm(`¿Estás seguro de que quieres eliminar al cliente ${cliente.Nombre}? Esta acción es irreversible.`)) {
-            return;
-        }
+        if (!window.confirm(`¿Estás seguro de que quieres eliminar al cliente ${cliente.Nombre}? Esta acción es irreversible.`)) return;
         setSaveError(null);
-        const token = localStorage.getItem('token');
+        const token = getToken();
 
         try {
             const response = await fetch(`${CLIENTES_API_BASE_URL}/${cliente.Id}`, {
@@ -201,30 +219,20 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             }
 
             onClose(); 
-            if (onClientDelete) {
-                onClientDelete(cliente.Id);
-            }
+            if (onClientDelete) onClientDelete(cliente.Id);
         } catch (error) {
             setSaveError(error.message || "Error de red al intentar eliminar.");
         }
     };
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setEditedClient(prev => ({ ...prev, [name]: value }));
-    };
-    
-    // ... (El resto de las funciones de manejo de visitas se mantienen igual)
-    // ...
-    
     const handleAddVisita = () => {
-        if (isEditing) return;
+        if (isEditing || isVisitaEditing) return;
         setEditedVisita({
             IdCliente: cliente.Id, 
             Fecha: formatDate(new Date(), true), 
             ProximaFecha: '', 
             Observaciones: '',
-            Anexo: false 
+            Anexo: null 
         });
         setVisitaSaveError(null);
         setEditingVisitaId('NEW_VISIT'); 
@@ -238,128 +246,21 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
 
     const handleFileChange = (e, visitaId) => {
         const file = e.target.files[0];
-        
         setFileAttachment(prev => ({
             ...prev,
             [visitaId]: file
         }));
-
         setEditedVisita(prev => ({
             ...prev,
-            Anexo: file ? file.name : (visitas.find(v => v.Id === visitaId)?.Anexo || false)
+            Anexo: file ? file.name : null 
         }));
     };
 
-    const handleSaveNewVisita = async () => {
-        setVisitaSaveError(null);
-        const token = localStorage.getItem('token');
-
-        if (!editedVisita.Fecha || !editedVisita.Observaciones) {
-            setVisitaSaveError('La fecha y las observaciones de la visita son obligatorias.');
-            return;
-        }
-
-        const file = fileAttachment['NEW_VISIT'];
-        const formData = new FormData();
-        formData.append('IdCliente', cliente.Id);
-        // Sugerir el IdComercial del cliente al backend
-        if (cliente.IdComercial) {
-             formData.append('IdComercial', cliente.IdComercial);
-        }
-        formData.append('Fecha', editedVisita.Fecha);
-        formData.append('ProximaFecha', editedVisita.ProximaFecha || ''); 
-        formData.append('Observaciones', editedVisita.Observaciones);
-        
-        if (file) {
-            formData.append('anexoFile', file); 
-        }
-
-        try {
-            const response = await fetch(`${VISITAS_API_BASE_URL}`, { 
-                method: 'POST', 
-                headers: {
-                    'Authorization': `Bearer ${token}` 
-                },
-                body: formData
-            });
-
-            if (!response.ok) {
-                const contentType = response.headers.get("content-type");
-                let errorMessage = `Error ${response.status}: Fallo al registrar la nueva visita.`;
-                
-                if (contentType && contentType.includes("application/json")) {
-                    const errorData = await response.json();
-                    errorMessage = errorData.message || errorMessage;
-                }
-                
-                throw new Error(errorMessage);
-            }
-
-            const data = await response.json(); 
-            
-            const newVisita = { 
-                ...editedVisita, 
-                Id: data.Id || data.id, 
-                NombreCliente: cliente.Nombre, 
-                IdComercial: cliente.IdComercial, 
-                Anexo: data.Anexo || (file ? file.name : null) 
-            };
-            
-            const now = new Date();
-            now.setHours(0, 0, 0, 0); 
-            
-            setVisitas(prev => [newVisita, ...prev].sort((a, b) => {
-                const nextDateA = a.ProximaFecha ? new Date(a.ProximaFecha) : null;
-                const nextDateB = b.ProximaFecha ? new Date(b.ProximaFecha) : null;
-                
-                const isAFuture = nextDateA && nextDateA >= now;
-                const isBFuture = nextDateB && nextDateB >= now;
-
-                if (isAFuture && isBFuture) {
-                    return nextDateA.getTime() - nextDateB.getTime();
-                }
-                
-                if (isAFuture) {
-                    return -1;
-                }
-                
-                if (isBFuture) {
-                    return 1;
-                }
-
-                const visitaDateA = new Date(a.Fecha);
-                const visitaDateB = new Date(b.Fecha);
-                
-                return visitaDateB.getTime() - visitaDateA.getTime();
-            })); 
-            
-            setEditingVisitaId(null);
-            setEditedVisita({});
-            setFileAttachment(prev => { delete prev['NEW_VISIT']; return prev; }); 
-
-        } catch (error) {
-            setVisitaSaveError(error.message || "Error de red al intentar registrar la visita.");
-        }
-    };
-
-    const handleEditVisita = (visita) => {
-        if (isEditing || editingVisitaId) return; 
-        setEditingVisitaId(visita.Id);
-        setVisitaSaveError(null);
-        
-        setEditedVisita({
-            ...visita,
-            Fecha: visita.Fecha ? formatDate(visita.Fecha, true) : '',
-            ProximaFecha: visita.ProximaFecha ? formatDate(visita.ProximaFecha, true) : '',
-            Anexo: visita.Anexo ? visita.Anexo : false 
-        });
-        
-        setFileAttachment(prev => ({ ...prev, [visita.Id]: null }));
-    };
-
+    // 🚨 Corrección en handleSaveVisita (Eliminación de _method para evitar 405)
     const handleSaveVisita = async () => {
         setVisitaSaveError(null);
-        const token = localStorage.getItem('token');
+        const token = getToken();
+        const isCreating = isNewVisita;
         const visitaId = editedVisita.Id;
         
         if (!editedVisita.Fecha || !editedVisita.Observaciones) {
@@ -367,82 +268,116 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             return;
         }
 
-        const file = fileAttachment[visitaId];
-
+        const fileKey = isCreating ? 'NEW_VISIT' : visitaId;
+        const file = fileAttachment[fileKey];
         const formData = new FormData();
-        formData.append('IdCliente', editedVisita.IdCliente); 
+        
+        formData.append('IdCliente', cliente.Id);
         formData.append('Fecha', editedVisita.Fecha); 
-        if (cliente.IdComercial) { 
-            formData.append('IdComercial', cliente.IdComercial); 
-        }
         formData.append('ProximaFecha', editedVisita.ProximaFecha || ''); 
         formData.append('Observaciones', editedVisita.Observaciones);
-        
-        if (file) {
-            formData.append('anexoFile', file); // Usa 'anexoFile'
-        } else {
-            // Si no hay archivo nuevo, aseguramos que se mantenga el Anexo si existe
-            formData.append('Anexo', editedVisita.Anexo || ''); 
+
+        if (!isCreating) {
+            // Se envía el ID en el cuerpo si es una actualización
+            formData.append('Id', editedVisita.Id); 
+            // 🚨 IMPORTANTE: Se ha eliminado formData.append('_method', 'PUT') para usar POST sin conflicto
         }
 
+        if (file) {
+            formData.append('anexoFile', file);
+        } else if (!isCreating) {
+            // Si el anexo se quitó, enviamos una cadena vacía para que Laravel lo elimine
+            if (editedVisita.Anexo === null) {
+                formData.append('Anexo', ''); 
+            }
+        }
+        
         try {
-            const response = await fetch(`${VISITAS_API_BASE_URL}/${visitaId}`, {
-                method: 'PUT', 
+            // Para la creación: /api/visitas (POST). Para la actualización: /api/visitas/{id} (POST)
+            const url = isCreating ? VISITAS_API_BASE_URL : `${VISITAS_API_BASE_URL}/${visitaId}`;
+            const method = 'POST'; 
+
+            const response = await fetch(url, {
+                method: method, 
                 headers: {
-                    'Authorization': `Bearer ${token}`
+                    'Authorization': `Bearer ${token}` 
                 },
                 body: formData
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.message || "Fallo al guardar la visita.");
+                throw new Error(errorData.message || `Fallo al ${isCreating ? 'registrar' : 'guardar'} la visita.`);
             }
+
+            const responseData = await response.json(); 
             
-            const responseData = await response.json();
-            const updatedAnexoStatus = responseData.Anexo || editedVisita.Anexo || (file ? file.name : null);
+            setVisitas(prev => {
+                let updatedList;
+                // Usa la información de comercial del cliente si es nueva, o la existente si es edición
+                const visitaOriginal = prev.find(v => v.Id === (isCreating ? null : visitaId));
+                
+                const updatedVisitaData = {
+                    ...editedVisita,
+                    ...(isCreating && { 
+                        Id: responseData.visita.Id, 
+                        IdComercial: responseData.visita.IdComercial 
+                    }), 
+                    Anexo: responseData.Anexo || null, 
+                    ProximaFecha: editedVisita.ProximaFecha || null,
+                    // Asegura que el nombre del comercial se mantenga
+                    comercial: visitaOriginal?.comercial || { Comercial: cliente.NombreComercial } 
+                };
+                
+                if (isCreating) {
+                    updatedList = [updatedVisitaData, ...prev];
+                } else {
+                    updatedList = prev.map(v => v.Id === visitaId ? updatedVisitaData : v);
+                }
 
-            const now = new Date();
-            now.setHours(0, 0, 0, 0); 
+                const now = new Date();
+                now.setHours(0, 0, 0, 0); 
+                return updatedList.sort((a, b) => {
+                    const nextDateA = a.ProximaFecha ? new Date(a.ProximaFecha) : null;
+                    const nextDateB = b.ProximaFecha ? new Date(b.ProximaFecha) : null;
+                    const isAFutureA = nextDateA && nextDateA >= now;
+                    const isAFutureB = nextDateB && nextDateB >= now;
+                    if (isAFutureA && isAFutureB) return nextDateA.getTime() - nextDateB.getTime();
+                    if (isAFutureA) return -1;
+                    if (isAFutureB) return 1;
+                    return new Date(b.Fecha).getTime() - new Date(a.Fecha).getTime();
+                });
+            }); 
             
-            setVisitas(prev => prev.map(v => v.Id === visitaId ? { 
-                ...v, 
-                Fecha: editedVisita.Fecha,
-                ProximaFecha: editedVisita.ProximaFecha || null,
-                Observaciones: editedVisita.Observaciones,
-                Anexo: updatedAnexoStatus 
-            } : v).sort((a, b) => {
-                const nextDateA = a.ProximaFecha ? new Date(a.ProximaFecha) : null;
-                const nextDateB = b.ProximaFecha ? new Date(b.ProximaFecha) : null;
-                
-                const isAFuture = nextDateA && nextDateA >= now;
-                const isBFuture = nextDateB && nextDateB >= now;
-
-                if (isAFuture && isBFuture) {
-                    return nextDateA.getTime() - nextDateB.getTime();
-                }
-                
-                if (isAFuture) {
-                    return -1;
-                }
-                
-                if (isBFuture) {
-                    return 1;
-                }
-
-                const visitaDateA = new Date(a.Fecha);
-                const visitaDateB = new Date(b.Fecha);
-                
-                return visitaDateB.getTime() - visitaDateA.getTime();
-            }));
-
             setEditingVisitaId(null);
             setEditedVisita({});
-            setFileAttachment(prev => { delete prev[visitaId]; return prev; });
-            
+            setFileAttachment({}); 
+
         } catch (error) {
-            setVisitaSaveError(error.message || "Error de red al intentar guardar la visita.");
+            setVisitaSaveError(error.message || `Error de red al intentar ${isCreating ? 'crear' : 'guardar'} la visita.`);
         }
+    };
+    
+    const handleEditVisita = (visita) => {
+        if (isEditing || isVisitaEditing) return; 
+        
+        const canEdit = isAdmin || visita.IdComercial === loggedInUserId;
+        if (!canEdit) {
+            setVisitaSaveError("No tienes permiso para editar esta visita.");
+            return;
+        }
+
+        setEditingVisitaId(visita.Id);
+        setVisitaSaveError(null);
+        
+        setEditedVisita({
+            ...visita,
+            Fecha: visita.Fecha ? formatDate(visita.Fecha, true) : '',
+            ProximaFecha: visita.ProximaFecha ? formatDate(visita.ProximaFecha, true) : '',
+            Anexo: visita.Anexo || null 
+        });
+        
+        setFileAttachment(prev => ({ ...prev, [visita.Id]: null }));
     };
 
     const handleCancelVisitaEdit = () => {
@@ -453,11 +388,9 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
     };
 
     const handleDeleteVisita = async (visitaId) => {
-        if (!window.confirm("¿Estás seguro de que quieres eliminar esta visita?")) {
-            return;
-        }
+        if (!window.confirm("¿Estás seguro de que quieres eliminar esta visita?")) return;
         setVisitaSaveError(null);
-        const token = localStorage.getItem('token');
+        const token = getToken();
         
         try {
             const response = await fetch(`${VISITAS_API_BASE_URL}/${visitaId}`, {
@@ -467,7 +400,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
 
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.message || "Fallo al eliminar la visita. Verifique sus permisos.");
+                throw new Error(errorData.message || "Fallo al eliminar la visita.");
             }
 
             setVisitas(prev => prev.filter(v => v.Id !== visitaId));
@@ -479,10 +412,8 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
     
     const handleDownloadAnexo = (filename) => {
         if (!filename) return; 
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const urlDescarga = `${VISITAS_API_BASE_URL}/anexo/${filename}`;
-
-        setLoadingVisitas(true); 
 
         fetch(urlDescarga, {
             method: 'GET',
@@ -491,22 +422,16 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             }
         })
         .then(async response => {
-            setLoadingVisitas(false); 
-
             if (!response.ok) {
                 let errorMessage = `Error ${response.status}: Fallo en la descarga del anexo.`;
-
                 try {
                     const errorData = await response.json();
                     errorMessage = errorData.message || errorMessage;
                 // eslint-disable-next-line no-unused-vars
-                } catch (_error) {
-                    // No need to log the response text if the user asked to remove all logs
-                }
-
+                } catch (error) { //
+                    }
                 throw new Error(errorMessage);
             }
-        
             return response.blob();
         })
         .then(blob => {
@@ -524,21 +449,20 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         });
     };
 
-
     const renderDetail = (key, label) => (
         <div className="detail-item">
             <strong>{label}:</strong>
-            {isEditing ? (
+            {isEditing && key !== 'IdComercial' ? (
                 <input
                     type={key.includes('Correo') ? 'email' : (key.includes('Telefono') ? 'tel' : 'text')}
                     name={key}
                     value={editedClient[key] || ''}
-                    onChange={handleChange}
+                    onChange={handleClientChange}
                     className="editable-input"
-                    disabled={isVisitaEditing}
+                    disabled={isVisitaEditing || !canEditClient}
                 />
             ) : (
-                <span>{cliente[key] || 'N/A'}</span>
+                <span>{editedClient[key] || 'N/A'}</span>
             )}
         </div>
     );
@@ -547,6 +471,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         const file = fileAttachment[visitaId];
         const fileNameToDisplay = file ? file.name : (currentAnexoValue || null);
         const inputId = `file-input-${visitaId}`;
+        const canDeleteAnexo = currentAnexoValue || file;
 
         return (
             <span className="file-input-group">
@@ -559,27 +484,29 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                     disabled={isEditing} 
                 />
                 <label htmlFor={inputId} className="boton-secundario-file">
-                    {fileNameToDisplay ? 'Cambiar' : 'Subir Archivo'}
+                    {fileNameToDisplay ? 'Cambiar Anexo' : 'Subir Anexo'}
                 </label>
                 {fileNameToDisplay && (
                     <span className="file-name-display" title={fileNameToDisplay}>
                         {fileNameToDisplay.length > 15 ? `${fileNameToDisplay.substring(0, 12)}...` : fileNameToDisplay}
                     </span>
                 )}
-                {file && (
+                {canDeleteAnexo && (
                      <button 
                         type="button" 
-                        className="icon-button" 
-                        onClick={() => setFileAttachment(prev => ({ ...prev, [visitaId]: null }))}
-                        title="Quitar archivo seleccionado"
+                        className="icon-button delete-anexo-icon" 
+                        onClick={() => {
+                            setFileAttachment(prev => ({ ...prev, [visitaId]: null }));
+                            setEditedVisita(prev => ({ ...prev, Anexo: null })); 
+                        }}
+                        title="Quitar/Eliminar Anexo"
                      >
-                        ❌
+                        🗑️
                     </button>
                 )}
             </span>
         );
     };
-
 
     return (
         <div className="modal-backdrop-view" onClick={handleCancelEdit}>
@@ -589,7 +516,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                     <div className="modal-actions-top">
                         {isEditing ? (
                             <>
-                                {canDelete && (
+                                {canDeleteClient && (
                                     <button
                                         type="button"
                                         className="boton-alerta"
@@ -620,7 +547,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                                     type="button"
                                     className="boton-secundario"
                                     onClick={handleEditClient}
-                                    disabled={isVisitaEditing}
+                                    disabled={isVisitaEditing || !canEditClient}
                                 >
                                     Editar Cliente
                                 </button>
@@ -640,16 +567,32 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 
                 {saveError && <p className="error-message-modal">{saveError}</p>}
                 
-                {/* 🔥 MODIFICACIÓN CLAVE: Reorganización del GRID de 4 columnas para compactar datos */}
                 <div className="client-details-grid">
                     
-                    {/* PRIMERA LÍNEA VISUAL (4 columnas) */}
                     <div className="detail-item">
                         <strong>Comercial Asignado:</strong>
-                        <span>
-                            {cliente.NombreComercial || 'N/A'} 
-                        </span>
+                        
+                        {isEditing && isAdmin ? (
+                            <select
+                                name="IdComercial"
+                                value={editedClient.IdComercial || ''}
+                                onChange={handleClientChange}
+                                className="editable-input"
+                                disabled={isVisitaEditing}
+                            >
+                                <option value="">Sin Asignar</option>
+                                {/* 🚨 Filtro para excluir al administrador (Id=10) */}
+                                {comerciales
+                                    .filter(c => c.Id !== 10) 
+                                    .map(c => (
+                                        <option key={c.Id} value={c.Id}>{c.Nombre}</option>
+                                    ))}
+                            </select>
+                        ) : (
+                            <span>{editedClient.NombreComercial || 'N/A'}</span>
+                        )}
                     </div>
+
                     {renderDetail('PersonaContacto', 'Persona de Contacto')} 
                     {renderDetail('Telefono', 'Teléfono Principal')}
                     {renderDetail('Correo', 'Correo Principal')}
@@ -666,10 +609,10 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                                 type="text"
                                 name="Direccion"
                                 value={editedClient.Direccion || ''}
-                                onChange={handleChange}
+                                onChange={handleClientChange}
                                 placeholder="Dirección"
                                 className="editable-input"
-                                disabled={isVisitaEditing}
+                                disabled={isVisitaEditing || !canEditClient}
                             />
                         ) : (
                             <span>{cliente.Direccion || 'N/A'}</span>
@@ -683,10 +626,8 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 <h3>Historial de Visitas ({visitas.length})</h3>
 
                 {loadingVisitas && <p className="loading-message-modal">Cargando visitas...</p>}
-                {errorVisitas && <p className="error-message-modal">{errorVisitas}</p>}
                 {visitaSaveError && <p className="error-message-modal">{visitaSaveError}</p>}
 
-                {/* Este contenedor ahora tiene un max-height fijo y overflow-y: auto en CSS */}
                 <div className="table-container-view"> 
                     <table className="visitas-table">
                         <thead>
@@ -694,172 +635,121 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                                 <th>Fecha Visita</th>
                                 <th>Próxima Visita</th>
                                 <th className="observaciones-col">Observaciones</th>
+                                <th>Comercial</th>
                                 <th>Anexo</th>
-                                <th className="actions-col-header" colSpan={canDelete ? "2" : "1"}>Acciones</th>
+                                <th className="actions-col-header">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {editingVisitaId === 'NEW_VISIT' && (
+                            {(isNewVisita || editingVisitaId === 'NEW_VISIT') && (
                                 <tr className="new-visita-row">
                                     <td>
-                                        <input
-                                            type="date"
-                                            name="Fecha"
-                                            value={editedVisita.Fecha || ''}
-                                            onChange={handleVisitaChange}
-                                            className="editable-input-table"
-                                        />
+                                        <input type="date" name="Fecha" value={editedVisita.Fecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
                                     </td>
                                     <td>
-                                        <input
-                                            type="date"
-                                            name="ProximaFecha"
-                                            value={editedVisita.ProximaFecha || ''}
-                                            onChange={handleVisitaChange}
-                                            className="editable-input-table"
-                                        />
+                                        <input type="date" name="ProximaFecha" value={editedVisita.ProximaFecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
                                     </td>
                                     <td className="observaciones-col">
-                                        <textarea
-                                            name="Observaciones"
-                                            value={editedVisita.Observaciones || ''}
-                                            onChange={handleVisitaChange}
-                                            className="editable-textarea-table"
-                                            placeholder="Observaciones de la nueva visita..."
-                                        />
+                                        <textarea name="Observaciones" value={editedVisita.Observaciones || ''} onChange={handleVisitaChange} className="editable-textarea-table" placeholder="Observaciones de la nueva visita..." />
                                     </td>
-                                    <td className="anexo-col">
-                                        {renderFileInput('NEW_VISIT', editedVisita.Anexo)} 
-                                    </td>
-                                    <td colSpan={canDelete ? "2" : "1"}> 
+                                    <td>{cliente.NombreComercial}</td>
+                                    <td className="anexo-col">{renderFileInput('NEW_VISIT', editedVisita.Anexo)}</td>
+                                    <td> 
                                         <div className="table-actions editing">
-                                            <button 
-                                                onClick={handleSaveNewVisita} 
-                                                className="icon-button save-icon"
-                                                title="Guardar Nueva Visita"
-                                            >
-                                                💾
-                                            </button>
-                                            <button 
-                                                onClick={handleCancelVisitaEdit} 
-                                                className="icon-button cancel-icon"
-                                                title="Cancelar"
-                                            >
-                                                ✖
-                                            </button>
+                                            <button onClick={handleSaveVisita} className="icon-button save-icon" title="Guardar Nueva Visita">💾</button>
+                                            <button onClick={handleCancelVisitaEdit} className="icon-button cancel-icon" title="Cancelar">✖</button>
                                         </div>
                                     </td>
-                                
                                 </tr>
                             )}
                             
-                            {visitas.length === 0 && !loadingVisitas && !errorVisitas && editingVisitaId !== 'NEW_VISIT' ? (
+                            {visitas.length === 0 && !loadingVisitas && !isNewVisita ? (
                                 <tr>
-                                    <td colSpan={canDelete ? "6" : "5"} className="no-data">No hay visitas registradas para este cliente.</td>
+                                    <td colSpan="6" className="no-data">No hay visitas registradas para este cliente.</td>
                                 </tr>
                             ) : (
-                                visitas.map(visita => (
-                                    <tr key={visita.Id}>
+                                visitas.map(visita => {
+                                    const isVisitaOwner = visita.IdComercial === loggedInUserId;
+                                    const canEditDelete = isAdmin || isVisitaOwner;
+
+                                    const isEditingCurrent = editingVisitaId === visita.Id;
+                                    
+                                    const anexoToDisplay = isEditingCurrent ? editedVisita.Anexo : visita.Anexo;
+
+                                    return (
+                                    <tr key={visita.Id} className={isEditingCurrent ? 'editing-row' : ''}>
                                         <td>
-                                            {editingVisitaId === visita.Id ? (
-                                                <input
-                                                    type="date"
-                                                    name="Fecha"
-                                                    value={editedVisita.Fecha || ''}
-                                                    onChange={handleVisitaChange}
-                                                    className="editable-input-table"
-                                                />
+                                            {isEditingCurrent ? (
+                                                <input type="date" name="Fecha" value={editedVisita.Fecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
                                             ) : (
                                                 formatDate(visita.Fecha)
                                             )}
                                         </td>
                                         <td>
-                                            {editingVisitaId === visita.Id ? (
-                                                <input
-                                                    type="date"
-                                                    name="ProximaFecha"
-                                                    value={editedVisita.ProximaFecha || ''}
-                                                    onChange={handleVisitaChange}
-                                                    className="editable-input-table"
-                                                />
+                                            {isEditingCurrent ? (
+                                                <input type="date" name="ProximaFecha" value={editedVisita.ProximaFecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
                                             ) : (
                                                 formatDate(visita.ProximaFecha)
                                             )}
                                         </td>
                                         <td className="observaciones-col">
-                                            {editingVisitaId === visita.Id ? (
-                                                <textarea
-                                                    name="Observaciones"
-                                                    value={editedVisita.Observaciones || ''}
-                                                    onChange={handleVisitaChange}
-                                                    className="editable-textarea-table"
-                                                />
+                                            {isEditingCurrent ? (
+                                                <textarea name="Observaciones" value={editedVisita.Observaciones || ''} onChange={handleVisitaChange} className="editable-textarea-table" />
                                             ) : (
-                                                `${visita.Observaciones.substring(0, 100)}${visita.Observaciones.length > 100 ? '...' : ''}`
+                                                visita.Observaciones
                                             )}
                                         </td>
+                                        <td>{visita.comercial?.Comercial || 'N/A'}</td>
                                         <td className="anexo-col">
-                                            {editingVisitaId === visita.Id ? (
-                                                <>
-                                                    {renderFileInput(visita.Id, editedVisita.Anexo)}
-                                                </>
+                                            {isEditingCurrent ? (
+                                                renderFileInput(visita.Id, visita.Anexo)
                                             ) : (
-                                                visita.Anexo 
-                                                    ? <span 
-                                                        className="anexo-link"
-                                                        onClick={() => handleDownloadAnexo(visita.Anexo)} 
-                                                        title="Clic para descargar el anexo"
-                                                      >
-                                                        Ver Anexo
-                                                      </span> 
-                                                    : 'No'
+                                                anexoToDisplay ? (
+                                                    <button 
+                                                        onClick={() => handleDownloadAnexo(anexoToDisplay)} 
+                                                        className="anexo-download-btn"
+                                                        title="Descargar Anexo"
+                                                    >
+                                                        ⬇️ {anexoToDisplay.length > 15 ? `${anexoToDisplay.substring(0, 12)}...` : anexoToDisplay}
+                                                    </button>
+                                                ) : 'N/A'
                                             )}
                                         </td>
-                                        
-                                        <td colSpan={canDelete ? "2" : "1"}> 
+                                        <td>
                                             <div className="table-actions">
-                                                {editingVisitaId === visita.Id ? (
+                                                {isEditingCurrent ? (
                                                     <>
-                                                        <button 
-                                                            onClick={handleSaveVisita} 
-                                                            className="icon-button save-icon"
-                                                            title="Guardar Visita"
-                                                        >
-                                                            💾
-                                                        </button>
-                                                        <button 
-                                                            onClick={handleCancelVisitaEdit} 
-                                                            className="icon-button cancel-icon"
-                                                            title="Cancelar Edición"
-                                                        >
-                                                            ✖
-                                                        </button>
+                                                        <button onClick={handleSaveVisita} className="icon-button save-icon" title="Guardar Cambios" disabled={isEditing}>💾</button>
+                                                        <button onClick={handleCancelVisitaEdit} className="icon-button cancel-icon" title="Cancelar Edición" disabled={isEditing}>✖</button>
                                                     </>
                                                 ) : (
-                                                    <button 
-                                                        onClick={() => handleEditVisita(visita)} 
-                                                        className="icon-button edit-icon"
-                                                        title="Editar Visita"
-                                                        disabled={isEditing || isVisitaEditing}
-                                                    >
-                                                        ✏️
-                                                    </button>
-                                                )}
-                                                {canDelete && (
-                                                    <button 
-                                                        onClick={() => handleDeleteVisita(visita.Id)} 
-                                                        className="icon-button delete-icon"
-                                                        title="Eliminar Visita"
-                                                        disabled={isEditing || isVisitaEditing}
-                                                    >
-                                                        🗑️
-                                                    </button>
+                                                    <>
+                                                        {canEditDelete && (
+                                                            <button 
+                                                                onClick={() => handleEditVisita(visita)} 
+                                                                className="icon-button edit-icon"
+                                                                title="Editar Visita"
+                                                                disabled={isEditing || isVisitaEditing}
+                                                            >
+                                                                ✏️
+                                                            </button>
+                                                        )}
+                                                        {isAdmin && (
+                                                            <button 
+                                                                onClick={() => handleDeleteVisita(visita.Id)} 
+                                                                className="icon-button delete-icon"
+                                                                title="Eliminar Visita"
+                                                                disabled={isEditing || isVisitaEditing}
+                                                            >
+                                                                🗑️
+                                                            </button>
+                                                        )}
+                                                    </>
                                                 )}
                                             </div>
                                         </td>
                                     </tr>
-                                ))
-                            )}
+                                )}))}
                         </tbody>
                     </table>
                 </div>

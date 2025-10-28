@@ -368,6 +368,7 @@ export default function HomePage() {
                             {isAdmin && (
                                 <th>Comercial Asignado</th> 
                             )}
+                            <th>Acciones</th>
                             
                             {isAdmin && <th><i className="fas fa-trash-alt" title='Borrar'></i></th>} 
                         </tr>
@@ -393,10 +394,12 @@ export default function HomePage() {
                                 <td>{cliente.Ciudad}</td>
                                 <td>{cliente.Correo}</td>
                                 
+                                {/* CORRECCIÓN: Columna del Comercial Asignado (solo para Admin) */}
                                 {isAdmin && (
                                     <td>{cliente.NombreComercial || 'Sin Asignar'}</td> 
                                 )}
                                 
+                                {/* Columna de Acciones (para el botón Eliminar si es Admin) */}
                                 {isAdmin && (
                                     <td style={{ textAlign: 'center' }}>
                                         <button 
