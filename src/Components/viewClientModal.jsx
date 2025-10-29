@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import './viewClientModal.css';
+import GenerateBudgetModal from './GenerateBudgetModal'; // 🚨 IMPORTANTE: Nuevo componente importado
 
 // 1. Definición de Constantes de API (CRÍTICO: Asegura que el puerto 8000/api sea correcto)
 const API_BASE_URL = 'http://localhost:8000/api';
@@ -30,7 +31,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
     const isAdmin = useMemo(() => loggedInUserId === 10, [loggedInUserId]);
 
     const [visitas, setVisitas] = useState([]);
-    const [comerciales, setComerciales] = useState([]); // Almacena la lista de comerciales
+    const [comerciales, setComerciales] = useState([]); 
     const [isEditing, setIsEditing] = useState(false);
     const [editedClient, setEditedClient] = useState({});
     const [saveError, setSaveError] = useState(null);
@@ -41,11 +42,29 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
     const [visitaSaveError, setVisitaSaveError] = useState(null);
     const [fileAttachment, setFileAttachment] = useState({}); 
 
+    // 🚨 Nuevo estado para el modal de presupuesto
+    const [showBudgetModal, setShowBudgetModal] = useState(false);
+    const [visitaToBudget, setVisitaToBudget] = useState(null);
+
+
     const isVisitaEditing = editingVisitaId !== null;
     const isNewVisita = editingVisitaId === 'NEW_VISIT';
     
     const canEditClient = isAdmin || editedClient.IdComercial === loggedInUserId;
     const canDeleteClient = isAdmin;
+
+    // 🚨 Nuevas funciones para manejar el modal de presupuesto
+    const handleOpenBudgetModal = (visita) => {
+        if (isEditing || isVisitaEditing) return;
+        setVisitaToBudget(visita);
+        setShowBudgetModal(true);
+    };
+
+    const handleCloseBudgetModal = () => {
+        setVisitaToBudget(null);
+        setShowBudgetModal(false);
+    };
+
 
     useEffect(() => {
         if (cliente) {
@@ -56,12 +75,13 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             setEditingVisitaId(null);
             setEditedVisita({});
             setFileAttachment({});
+            handleCloseBudgetModal(); // 🚨 Cerrar el modal de presupuesto al cambiar de cliente
         }
     }, [cliente]);
 
     // 🚨 2. useEffect para Cargar Comerciales (Solo Admin)
     useEffect(() => {
-        if (!show || !isAdmin) return;
+        if (!show) return;
 
         const fetchComerciales = async () => {
             const token = getToken();
@@ -73,17 +93,20 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                 if (!response.ok) throw new Error("No se pudieron cargar los comerciales.");
                 const data = await response.json();
                 
-                // Aseguramos que la respuesta tiene la estructura esperada (ej: [{Id: 1, Comercial: 'Nombre'}]
                 setComerciales(data);
                 
             } catch (error) {
                 console.error("Error fetching comerciales:", error);
-                setSaveError("Error al cargar la lista de comerciales.");
+                if (isAdmin) setSaveError("Error al cargar la lista de comerciales.");
             }
         };
         
-        fetchComerciales();
-    }, [show, isAdmin]);
+        // Solo cargar si somos admin o si el cliente tiene un comercial asignado que no somos nosotros
+        if (isAdmin || cliente?.IdComercial !== loggedInUserId) {
+             fetchComerciales();
+        }
+       
+    }, [show, isAdmin, loggedInUserId, cliente]);
 
 
     useEffect(() => {
@@ -153,6 +176,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         setSaveError(null);
         setVisitaSaveError(null);
         setFileAttachment({}); 
+        handleCloseBudgetModal(); // 🚨 Asegurar el cierre del modal de presupuesto
     };
     
     const handleClientChange = (e) => {
@@ -179,7 +203,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
 
         try {
             const response = await fetch(`${CLIENTES_API_BASE_URL}/${editedClient.Id}`, {
-                method: 'PUT', // Usamos PUT para actualizar cliente
+                method: 'PUT', 
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
@@ -256,7 +280,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         }));
     };
 
-    // 🚨 Corrección en handleSaveVisita (Eliminación de _method para evitar 405)
     const handleSaveVisita = async () => {
         setVisitaSaveError(null);
         const token = getToken();
@@ -278,22 +301,18 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         formData.append('Observaciones', editedVisita.Observaciones);
 
         if (!isCreating) {
-            // Se envía el ID en el cuerpo si es una actualización
             formData.append('Id', editedVisita.Id); 
-            // 🚨 IMPORTANTE: Se ha eliminado formData.append('_method', 'PUT') para usar POST sin conflicto
         }
 
         if (file) {
             formData.append('anexoFile', file);
         } else if (!isCreating) {
-            // Si el anexo se quitó, enviamos una cadena vacía para que Laravel lo elimine
             if (editedVisita.Anexo === null) {
                 formData.append('Anexo', ''); 
             }
         }
         
         try {
-            // Para la creación: /api/visitas (POST). Para la actualización: /api/visitas/{id} (POST)
             const url = isCreating ? VISITAS_API_BASE_URL : `${VISITAS_API_BASE_URL}/${visitaId}`;
             const method = 'POST'; 
 
@@ -314,7 +333,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             
             setVisitas(prev => {
                 let updatedList;
-                // Usa la información de comercial del cliente si es nueva, o la existente si es edición
                 const visitaOriginal = prev.find(v => v.Id === (isCreating ? null : visitaId));
                 
                 const updatedVisitaData = {
@@ -325,7 +343,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                     }), 
                     Anexo: responseData.Anexo || null, 
                     ProximaFecha: editedVisita.ProximaFecha || null,
-                    // Asegura que el nombre del comercial se mantenga
                     comercial: visitaOriginal?.comercial || { Comercial: cliente.NombreComercial } 
                 };
                 
@@ -509,221 +526,230 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
     };
 
     return (
-        <div className="modal-backdrop-view" onClick={handleCancelEdit}>
-            <div className="modal-content-view" onClick={e => e.stopPropagation()}> 
-                <div className="modal-header-view">
-                    <h2>Detalle del Cliente: {cliente.Nombre}</h2>
-                    <div className="modal-actions-top">
-                        {isEditing ? (
-                            <>
-                                {canDeleteClient && (
+        <> {/* 🚨 Fragmento para incluir el modal de presupuesto */}
+            <div className="modal-backdrop-view" onClick={handleCancelEdit}>
+                <div className="modal-content-view" onClick={e => e.stopPropagation()}> 
+                    <div className="modal-header-view">
+                        <h2>Detalle del Cliente: {cliente.Nombre}</h2>
+                        <div className="modal-actions-top">
+                            {isEditing ? (
+                                <>
+                                    {canDeleteClient && (
+                                        <button
+                                            type="button"
+                                            className="boton-alerta"
+                                            onClick={handleDeleteClient}
+                                            disabled={isVisitaEditing}
+                                        >
+                                            Eliminar Cliente
+                                        </button>
+                                    )}
                                     <button
                                         type="button"
-                                        className="boton-alerta"
-                                        onClick={handleDeleteClient}
-                                        disabled={isVisitaEditing}
+                                        className="boton-secundario"
+                                        onClick={handleCancelEdit}
                                     >
-                                        Eliminar Cliente
+                                        Cancelar
                                     </button>
-                                )}
-                                <button
-                                    type="button"
-                                    className="boton-secundario"
-                                    onClick={handleCancelEdit}
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="button"
-                                    className="boton-principal"
-                                    onClick={handleSaveClient}
-                                >
-                                    Guardar
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <button
-                                    type="button"
-                                    className="boton-secundario"
-                                    onClick={handleEditClient}
-                                    disabled={isVisitaEditing || !canEditClient}
-                                >
-                                    Editar Cliente
-                                </button>
-                                <button
-                                    type="button"
-                                    className="boton-principal"
-                                    onClick={handleAddVisita} 
-                                    disabled={isEditing || isVisitaEditing}
-                                >
-                                    Añadir Visita
-                                </button>
-                                <button className="boton-secundario" onClick={onClose} aria-label="Cerrar">Cerrar</button>
-                            </>
-                        )}
-                    </div>
-                </div>
-                
-                {saveError && <p className="error-message-modal">{saveError}</p>}
-                
-                <div className="client-details-grid">
-                    
-                    <div className="detail-item">
-                        <strong>Comercial Asignado:</strong>
-                        
-                        {isEditing && isAdmin ? (
-                            <select
-                                name="IdComercial"
-                                value={editedClient.IdComercial || ''}
-                                onChange={handleClientChange}
-                                className="editable-input"
-                                disabled={isVisitaEditing}
-                            >
-                                <option value="">Sin Asignar</option>
-                                {/* 🚨 Filtro para excluir al administrador (Id=10) */}
-                                {comerciales
-                                    .filter(c => c.Id !== 10) 
-                                    .map(c => (
-                                        <option key={c.Id} value={c.Id}>{c.Nombre}</option>
-                                    ))}
-                            </select>
-                        ) : (
-                            <span>{editedClient.NombreComercial || 'N/A'}</span>
-                        )}
-                    </div>
-
-                    {renderDetail('PersonaContacto', 'Persona de Contacto')} 
-                    {renderDetail('Telefono', 'Teléfono Principal')}
-                    {renderDetail('Correo', 'Correo Principal')}
-                    
-                    {renderDetail('Telefono2', 'Teléfono Secundario')}
-                    {renderDetail('Correo2', 'Correo Secundario')}
-                    {renderDetail('Ciudad', 'Ciudad')}
-                    {renderDetail('Provincia', 'Provincia')}
-
-                    <div className="detail-item full-row">
-                        <strong>Dirección Completa:</strong>
-                        {isEditing ? (
-                            <input
-                                type="text"
-                                name="Direccion"
-                                value={editedClient.Direccion || ''}
-                                onChange={handleClientChange}
-                                placeholder="Dirección"
-                                className="editable-input"
-                                disabled={isVisitaEditing || !canEditClient}
-                            />
-                        ) : (
-                            <span>{cliente.Direccion || 'N/A'}</span>
-                        )}
-                    </div>
-                    
-                    <hr className="divider full-row" />
-                </div>
-
-
-                <h3>Historial de Visitas ({visitas.length})</h3>
-
-                {loadingVisitas && <p className="loading-message-modal">Cargando visitas...</p>}
-                {visitaSaveError && <p className="error-message-modal">{visitaSaveError}</p>}
-
-                <div className="table-container-view"> 
-                    <table className="visitas-table">
-                        <thead>
-                            <tr>
-                                <th>Fecha Visita</th>
-                                <th>Próxima Visita</th>
-                                <th className="observaciones-col">Observaciones</th>
-                                <th>Comercial</th>
-                                <th>Anexo</th>
-                                <th className="actions-col-header">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {(isNewVisita || editingVisitaId === 'NEW_VISIT') && (
-                                <tr className="new-visita-row">
-                                    <td>
-                                        <input type="date" name="Fecha" value={editedVisita.Fecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
-                                    </td>
-                                    <td>
-                                        <input type="date" name="ProximaFecha" value={editedVisita.ProximaFecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
-                                    </td>
-                                    <td className="observaciones-col">
-                                        <textarea name="Observaciones" value={editedVisita.Observaciones || ''} onChange={handleVisitaChange} className="editable-textarea-table" placeholder="Observaciones de la nueva visita..." />
-                                    </td>
-                                    <td>{cliente.NombreComercial}</td>
-                                    <td className="anexo-col">{renderFileInput('NEW_VISIT', editedVisita.Anexo)}</td>
-                                    <td> 
-                                        <div className="table-actions editing">
-                                            <button onClick={handleSaveVisita} className="icon-button save-icon" title="Guardar Nueva Visita">💾</button>
-                                            <button onClick={handleCancelVisitaEdit} className="icon-button cancel-icon" title="Cancelar">✖</button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )}
-                            
-                            {visitas.length === 0 && !loadingVisitas && !isNewVisita ? (
-                                <tr>
-                                    <td colSpan="6" className="no-data">No hay visitas registradas para este cliente.</td>
-                                </tr>
+                                    <button
+                                        type="button"
+                                        className="boton-principal"
+                                        onClick={handleSaveClient}
+                                    >
+                                        Guardar
+                                    </button>
+                                </>
                             ) : (
-                                visitas.map(visita => {
-                                    const isVisitaOwner = visita.IdComercial === loggedInUserId;
-                                    const canEditDelete = isAdmin || isVisitaOwner;
+                                <>
+                                    <button
+                                        type="button"
+                                        className="boton-secundario"
+                                        onClick={handleEditClient}
+                                        disabled={isVisitaEditing || !canEditClient}
+                                    >
+                                        Editar Cliente
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="boton-principal"
+                                        onClick={handleAddVisita} 
+                                        disabled={isEditing || isVisitaEditing}
+                                    >
+                                        Añadir Visita
+                                    </button>
+                                    <button className="boton-secundario" onClick={onClose} aria-label="Cerrar">Cerrar</button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                    
+                    {saveError && <p className="error-message-modal">{saveError}</p>}
+                    
+                    <div className="client-details-grid">
+                        
+                        <div className="detail-item">
+                            <strong>Comercial Asignado:</strong>
+                            
+                            {isEditing && isAdmin ? (
+                                <select
+                                    name="IdComercial"
+                                    value={editedClient.IdComercial || ''}
+                                    onChange={handleClientChange}
+                                    className="editable-input"
+                                    disabled={isVisitaEditing}
+                                >
+                                    <option value="">Sin Asignar</option>
+                                    {comerciales
+                                        .filter(c => c.Id !== 10) 
+                                        .map(c => (
+                                            <option key={c.Id} value={c.Id}>{c.Nombre}</option>
+                                        ))}
+                                </select>
+                            ) : (
+                                <span>{editedClient.NombreComercial || 'N/A'}</span>
+                            )}
+                        </div>
 
-                                    const isEditingCurrent = editingVisitaId === visita.Id;
-                                    
-                                    const anexoToDisplay = isEditingCurrent ? editedVisita.Anexo : visita.Anexo;
+                        {renderDetail('PersonaContacto', 'Persona de Contacto')} 
+                        {renderDetail('Telefono', 'Teléfono Principal')}
+                        {renderDetail('Correo', 'Correo Principal')}
+                        
+                        {renderDetail('Telefono2', 'Teléfono Secundario')}
+                        {renderDetail('Correo2', 'Correo Secundario')}
+                        {renderDetail('Ciudad', 'Ciudad')}
+                        {renderDetail('Provincia', 'Provincia')}
 
-                                    return (
-                                    <tr key={visita.Id} className={isEditingCurrent ? 'editing-row' : ''}>
+                        <div className="detail-item full-row">
+                            <strong>Dirección Completa:</strong>
+                            {isEditing ? (
+                                <input
+                                    type="text"
+                                    name="Direccion"
+                                    value={editedClient.Direccion || ''}
+                                    onChange={handleClientChange}
+                                    placeholder="Dirección"
+                                    className="editable-input"
+                                    disabled={isVisitaEditing || !canEditClient}
+                                />
+                            ) : (
+                                <span>{cliente.Direccion || 'N/A'}</span>
+                            )}
+                        </div>
+                        
+                        <hr className="divider full-row" />
+                    </div>
+
+
+                    <h3>Historial de Visitas ({visitas.length})</h3>
+
+                    {loadingVisitas && <p className="loading-message-modal">Cargando visitas...</p>}
+                    {visitaSaveError && <p className="error-message-modal">{visitaSaveError}</p>}
+
+                    <div className="table-container-view"> 
+                        <table className="visitas-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha Visita</th>
+                                    <th>Próxima Visita</th>
+                                    <th className="observaciones-col">Observaciones</th>
+                                    <th>Comercial</th>
+                                    <th>Anexo</th>
+                                    {/* 🚨 CLASE AÑADIDA para el espacio extra del botón de Presupuesto */}
+                                    <th className="actions-col-header wide-actions">Acciones</th> 
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {(isNewVisita || editingVisitaId === 'NEW_VISIT') && (
+                                    <tr className="new-visita-row">
                                         <td>
-                                            {isEditingCurrent ? (
-                                                <input type="date" name="Fecha" value={editedVisita.Fecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
-                                            ) : (
-                                                formatDate(visita.Fecha)
-                                            )}
+                                            <input type="date" name="Fecha" value={editedVisita.Fecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
                                         </td>
                                         <td>
-                                            {isEditingCurrent ? (
-                                                <input type="date" name="ProximaFecha" value={editedVisita.ProximaFecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
-                                            ) : (
-                                                formatDate(visita.ProximaFecha)
-                                            )}
+                                            <input type="date" name="ProximaFecha" value={editedVisita.ProximaFecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
                                         </td>
                                         <td className="observaciones-col">
-                                            {isEditingCurrent ? (
-                                                <textarea name="Observaciones" value={editedVisita.Observaciones || ''} onChange={handleVisitaChange} className="editable-textarea-table" />
-                                            ) : (
-                                                visita.Observaciones
-                                            )}
+                                            <textarea name="Observaciones" value={editedVisita.Observaciones || ''} onChange={handleVisitaChange} className="editable-textarea-table" placeholder="Observaciones de la nueva visita..." />
                                         </td>
-                                        <td>{visita.comercial?.Comercial || 'N/A'}</td>
-                                        <td className="anexo-col">
-                                            {isEditingCurrent ? (
-                                                renderFileInput(visita.Id, visita.Anexo)
-                                            ) : (
-                                                anexoToDisplay ? (
-                                                    <button 
-                                                        onClick={() => handleDownloadAnexo(anexoToDisplay)} 
-                                                        className="anexo-download-btn"
-                                                        title="Descargar Anexo"
-                                                    >
-                                                        ⬇️ {anexoToDisplay.length > 15 ? `${anexoToDisplay.substring(0, 12)}...` : anexoToDisplay}
-                                                    </button>
-                                                ) : 'N/A'
-                                            )}
+                                        <td>{cliente.NombreComercial}</td>
+                                        <td className="anexo-col">{renderFileInput('NEW_VISIT', editedVisita.Anexo)}</td>
+                                        <td> 
+                                            <div className="table-actions editing wide-actions">
+                                                <button onClick={handleSaveVisita} className="icon-button save-icon" title="Guardar Nueva Visita">💾</button>
+                                                <button onClick={handleCancelVisitaEdit} className="icon-button cancel-icon" title="Cancelar">✖</button>
+                                            </div>
                                         </td>
-                                        <td>
-                                            <div className="table-actions">
+                                    </tr>
+                                )}
+                                
+                                {visitas.length === 0 && !loadingVisitas && !isNewVisita ? (
+                                    <tr>
+                                        <td colSpan="6" className="no-data">No hay visitas registradas para este cliente.</td>
+                                    </tr>
+                                ) : (
+                                    visitas.map(visita => {
+                                        const isVisitaOwner = visita.IdComercial === loggedInUserId;
+                                        const canEditDelete = isAdmin || isVisitaOwner;
+
+                                        const isEditingCurrent = editingVisitaId === visita.Id;
+                                        
+                                        const anexoToDisplay = isEditingCurrent ? editedVisita.Anexo : visita.Anexo;
+
+                                        return (
+                                        <tr key={visita.Id} className={isEditingCurrent ? 'editing-row' : ''}>
+                                            <td>
                                                 {isEditingCurrent ? (
-                                                    <>
+                                                    <input type="date" name="Fecha" value={editedVisita.Fecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
+                                                ) : (
+                                                    formatDate(visita.Fecha)
+                                                )}
+                                            </td>
+                                            <td>
+                                                {isEditingCurrent ? (
+                                                    <input type="date" name="ProximaFecha" value={editedVisita.ProximaFecha || ''} onChange={handleVisitaChange} className="editable-input-table" />
+                                                ) : (
+                                                    formatDate(visita.ProximaFecha)
+                                                )}
+                                            </td>
+                                            <td className="observaciones-col">
+                                                {isEditingCurrent ? (
+                                                    <textarea name="Observaciones" value={editedVisita.Observaciones || ''} onChange={handleVisitaChange} className="editable-textarea-table" />
+                                                ) : (
+                                                    visita.Observaciones
+                                                )}
+                                            </td>
+                                            <td>{visita.comercial?.Comercial || 'N/A'}</td>
+                                            <td className="anexo-col">
+                                                {isEditingCurrent ? (
+                                                    renderFileInput(visita.Id, visita.Anexo)
+                                                ) : (
+                                                    anexoToDisplay ? (
+                                                        <button 
+                                                            onClick={() => handleDownloadAnexo(anexoToDisplay)} 
+                                                            className="anexo-download-btn"
+                                                            title="Descargar Anexo"
+                                                        >
+                                                            ⬇️ {anexoToDisplay.length > 15 ? `${anexoToDisplay.substring(0, 12)}...` : anexoToDisplay}
+                                                        </button>
+                                                    ) : 'N/A'
+                                                )}
+                                            </td>
+                                            <td>
+                                                {isEditingCurrent ? (
+                                                     <div className="table-actions editing wide-actions">
                                                         <button onClick={handleSaveVisita} className="icon-button save-icon" title="Guardar Cambios" disabled={isEditing}>💾</button>
                                                         <button onClick={handleCancelVisitaEdit} className="icon-button cancel-icon" title="Cancelar Edición" disabled={isEditing}>✖</button>
-                                                    </>
+                                                    </div>
                                                 ) : (
-                                                    <>
+                                                    <div className="table-actions wide-actions">
+                                                        {/* 🚨 Botón de Generar Presupuesto */}
+                                                        <button 
+                                                            onClick={() => handleOpenBudgetModal(visita)} 
+                                                            className="icon-button budget-icon"
+                                                            title="Generar Presupuesto"
+                                                            disabled={isEditing || isVisitaEditing}
+                                                        >
+                                                            🧾 
+                                                        </button>
                                                         {canEditDelete && (
                                                             <button 
                                                                 onClick={() => handleEditVisita(visita)} 
@@ -744,17 +770,24 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                                                                 🗑️
                                                             </button>
                                                         )}
-                                                    </>
+                                                    </div>
                                                 )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}))}
-                        </tbody>
-                    </table>
-                </div>
+                                            </td>
+                                        </tr>
+                                    )}))}
+                            </tbody>
+                        </table>
+                    </div>
 
+                </div>
             </div>
-        </div>
+            {/* 🚨 Renderizado del nuevo componente modal */}
+            <GenerateBudgetModal 
+                show={showBudgetModal} 
+                onClose={handleCloseBudgetModal} 
+                clienteNombre={cliente.Nombre} 
+                visita={visitaToBudget} 
+            />
+        </>
     );
 }
