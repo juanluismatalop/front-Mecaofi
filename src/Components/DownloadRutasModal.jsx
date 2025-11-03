@@ -130,53 +130,67 @@ export default function DownloadRutasModal ({ show, onClose }) {
     };
 
 
-    const handleView = async (e) => {
-        e.preventDefault();
-        setError(null);
-        setSubmitting(true);
+    const handleView = async () => {
+  try {
+    // 1️⃣ Obtener el token guardado al iniciar sesión
+    const token = localStorage.getItem('token');
 
-        const token = localStorage.getItem('token');
-        if (!token) {
-            alert("No estás autenticado.");
-            onClose();
-            return;
-        }
-        
-        // Llamada a la API con format=json
-        const data = getUrlAndDates('json');
-        if (!data) return;
+    // 2️⃣ Verificar que el token exista antes de llamar al backend
+    if (!token) {
+      alert("No se encontró un token de autenticación. Inicia sesión nuevamente.");
+      return;
+    }
 
-        const { fetchUrl, start_date, end_date } = data;
-        const headers = { 'Authorization': `Bearer ${token}` };
+    // 3️⃣ Construir los parámetros (ejemplo: fechas de inicio y fin)
+    const start = "2025-11-01";
+    const end = "2025-11-30";
 
-        try {
-            const response = await fetch(fetchUrl, {
-                method: 'GET',
-                headers: headers,
-            });
-            
-            const responseData = await response.json(); 
+    // 4️⃣ Hacer la petición con los headers correctos
+    const response = await fetch(
+      `http://localhost:8000/api/visitas/pdf-rutas?start=${start}&end=${end}`,
+      {
+        method: "GET",
+        headers: {
+          // 🔐 Enviar el token de autenticación
+          "Authorization": `Bearer ${token}`,
+          // 📄 Importante: forzar que Laravel devuelva JSON si hay error
+          "Accept": "application/json",
+        },
+      }
+    );
 
-            if (response.status === 404) {
-                 setError(responseData.message || `No se encontraron visitas programadas entre ${moment(start_date).format('DD/MM/YYYY')} y ${moment(end_date).format('DD/MM/YYYY')}.`);
-                 setSubmitting(false);
-                 return;
-            }
+    // 5️⃣ Comprobar si la respuesta fue exitosa
+    if (!response.ok) {
+      // Si el backend devuelve JSON con error, lo mostramos
+      let errorText = await response.text();
+      try {
+        const jsonError = JSON.parse(errorText);
+        throw new Error(jsonError.message || "Error al generar el PDF de rutas");
+      } catch {
+        // Si la respuesta no es JSON, mostramos texto plano
+        throw new Error("Error interno del servidor o token inválido");
+      }
+    }
 
-            if (!response.ok) {
-                throw new Error(responseData.message || `Error ${response.status}: El servidor rechazó la solicitud de datos.`);
-            }
-            
-            // Éxito: guardar los datos y mostrar la tabla
-            setVisitasData(responseData);
-            
-        } catch (e) {
-            console.error('Error durante la visualización de la tabla:', e);
-            setError(e.message || `Error al obtener los datos de las rutas: ${e.message}`);
-        } finally {
-            setSubmitting(false);
-        }
-    };
+    // 6️⃣ Convertir la respuesta en un blob (PDF)
+    const blob = await response.blob();
+
+    // 7️⃣ Crear un enlace temporal para descargar el PDF
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `Rutas_${start}_a_${end}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+
+    console.log("✅ PDF descargado correctamente");
+  } catch (error) {
+    console.error("❌ Error en handleView:", error);
+    alert(error.message || "Error inesperado al descargar el PDF");
+  }
+};
 
     // --- Componente de Tabla (Inline) ---
     const RutasTable = ({ visitas, onGoBack, onDownload }) => {

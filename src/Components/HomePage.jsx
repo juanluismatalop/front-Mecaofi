@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AddClientModal from './addClientModal';
 import ViewClientModal from './viewClientModal';
 import AddComercialModal from './addComercialModal';
+import AddMachineModal from './addMachineModal'; // 🚨 Importación correcta
 import ManageComercialsModal from './ManageComercialsModal'; 
 import DownloadRutasModal from './DownloadRutasModal';
 import './HomePage.css';
@@ -26,12 +27,14 @@ export default function HomePage() {
     const [showComercialModal, setShowComercialModal] = useState(false); 
     const [showManageComercialsModal, setShowManageComercialsModal] = useState(false); 
     const [showDownloadModal, setShowDownloadModal] = useState(false);
+    const [showAddMachineModal, setShowAddMachineModal] = useState(false); // ✅ Estado para AddMachineModal
 
     const [searchTerm, setSearchTerm] = useState('');
     const [searchCity, setSearchCity] = useState('');
 
     const [userId, setUserId] = useState(null); 
     const [userName, setUserName] = useState("Cargando..."); 
+
     
     const navigate = useNavigate();
 
@@ -200,6 +203,10 @@ export default function HomePage() {
         }
         // No llamamos a setShowComercialModal(false) para no interrumpir el temporizador del modal.
     }
+
+    const handleMachineAdded = (newMachine) => {
+        console.log("Máquina añadida, éxito:", newMachine);
+    }
     
     const handleClientUpdate = (updatedClient) => {
         setShowViewModal(false); 
@@ -330,11 +337,19 @@ export default function HomePage() {
             </div>
 
             <h2>Listado de Clientes de {userName} ({clientesFiltrados.length})</h2>
-
+            
             <div className="table-container">
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '15px' }}>
                     <button className='boton' onClick={() => setShowModal(true)}>Añadir Cliente</button>
-                    
+                    {isAdmin && ( // Mostrar solo si es Administrador
+                        <button 
+                            className='boton' 
+                            onClick={() => setShowAddMachineModal(true)} // 3. ACCIÓN PARA ABRIR EL MODAL
+                            title='Añadir Nueva Máquina'
+                        >
+                            Añadir Máquina
+                        </button>
+                    )}
                     {isAdmin && (
                         <div className="form__group field" style={{ width: '250px' }}>
                             <select
@@ -452,6 +467,13 @@ export default function HomePage() {
                 userId={userId}
                 ADMIN_ID={ADMIN_ID}
             /> 
+            
+            {/* ⭐️ COMPONENTE AGREGADO: Esto es lo que faltaba para que se abriera ⭐️ */}
+            <AddMachineModal 
+                show={showAddMachineModal}
+                onClose={() => setShowAddMachineModal(false)}
+                onMachineAdded={handleMachineAdded} 
+            />
         </div>
     );
 }
