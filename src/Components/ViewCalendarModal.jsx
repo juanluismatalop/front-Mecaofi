@@ -29,12 +29,13 @@ const generateCalendarDays = (date) => {
   return calendarDays;
 };
 
-export default function ViewCalendarModal({ show, onClose, visitas }) {
+// ⭐️ MODIFICADO: Añadimos la prop onViewClient ⭐️
+export default function ViewCalendarModal({ show, onClose, visitas, onViewClient }) {
   const [visitasConNombres, setVisitasConNombres] = useState([]);
   const [currentDate, setCurrentDate] = useState(new Date(2025, 10, 1)); // noviembre 2025
   const [transitionDirection, setTransitionDirection] = useState('none'); // 'left' o 'right'
 
-  // ✅ Usa el nombre del cliente que viene en la relación "cliente"
+  // Procesa las visitas, asegurando que tengamos el objeto cliente completo
   useEffect(() => {
     if (!visitas.length) return;
 
@@ -44,9 +45,11 @@ export default function ViewCalendarModal({ show, onClose, visitas }) {
         v.cliente?.Nombre ||
         v.NombreCliente ||
         'Cliente desconocido',
+      clientData: v.cliente, // ⭐️ CRÍTICO: Guardamos el objeto cliente completo
     }));
 
-    setVisitasConNombres(visitasProcesadas);
+    // Filtramos cualquier visita que no tenga un objeto cliente asociado
+    setVisitasConNombres(visitasProcesadas.filter(v => v.clientData)); 
   }, [visitas]);
 
   // Agrupar visitas por fecha
@@ -57,6 +60,16 @@ export default function ViewCalendarModal({ show, onClose, visitas }) {
       return acc;
     }, {});
   }, [visitasConNombres]);
+    
+  // ⭐️ NUEVO HANDLER: Función para abrir el modal del cliente
+  const handleVisitClick = (visita) => {
+      // Solo procede si tenemos los datos del cliente y la función del padre
+      if (visita.clientData && onViewClient) {
+          onClose(); // 1. Cierra el modal de calendario
+          onViewClient(visita.clientData); // 2. Llama a la función del padre pasando el cliente
+      }
+  };
+
 
   const calendar = useMemo(() => generateCalendarDays(currentDate), [currentDate]);
 
@@ -118,7 +131,13 @@ export default function ViewCalendarModal({ show, onClose, visitas }) {
                       <>
                         <div className="gc-day-number">{day.getDate()}</div>
                         {dayVisitas.map((v, idx) => (
-                          <div key={idx} className="gc-event">
+                          <div 
+                            key={idx} 
+                            // ⭐️ AÑADIDO: Clase y Manejador de clic en el día
+                            className={`gc-event ${v.clientData ? 'clickable-event' : ''}`} 
+                            onClick={() => handleVisitClick(v)}
+                            title={v.clientData ? `Ver cliente: ${v.NombreCliente}` : 'Cliente no disponible'}
+                          >
                             {v.Hora ? `${v.Hora} — ` : ''}{v.NombreCliente}
                           </div>
                         ))}
@@ -139,7 +158,13 @@ export default function ViewCalendarModal({ show, onClose, visitas }) {
             ) : (
               <ul>
                 {visitasConNombres.map((v, i) => (
-                  <li key={i}>
+                  <li 
+                    key={i}
+                    // ⭐️ AÑADIDO: Manejador de clic en el resumen
+                    onClick={() => handleVisitClick(v)}
+                    style={{ cursor: v.clientData ? 'pointer' : 'default' }}
+                    title={v.clientData ? `Ver cliente: ${v.NombreCliente}` : 'Cliente no disponible'}
+                  >
                     <strong>
                       {v.Fecha.split('T')[0]} {v.Hora || ''}
                     </strong>{' '}

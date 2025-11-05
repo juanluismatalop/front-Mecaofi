@@ -166,3 +166,22 @@
 }
 
 @keyf
+/* viewCalendarModal.css */
+
+.gc-event.clickable-event {
+    cursor: pointer;
+    background-color: #f0f0f0; /* Fondo sutil para indicar que es interactivo */
+    border-radius: 3px;
+    padding: 2px 4px;
+    margin-top: 2px;
+    transition: background-color 0.15s ease;
+}
+
+.gc-event.clickable-event:hover {
+    background-color: #e0e0e0; /* Cambio de color al pasar el ratón */
+}
+
+/* También puedes aplicar el cursor a los elementos de la lista */
+.gc-visits-list li:hover {
+    background-color: #f9f9f9;
+}

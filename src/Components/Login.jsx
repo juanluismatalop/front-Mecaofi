@@ -2,6 +2,12 @@ import { useState } from "react";
 import './Login.css';
 import { useNavigate } from "react-router-dom"; 
 
+// ==========================================================
+// ** CONFIGURACIÓN **
+// Asegúrate de que esta URL coincida con la de tu backend (Laravel)
+// ==========================================================
+const API_URL = 'https://www.mecaofi.com';
+
 export default function Login(){
     const [comercial, setComercial] = useState(''); 
     const [contrasenna, setContrasenna] = useState('');
@@ -10,8 +16,27 @@ export default function Login(){
 
     async function Entrar(){
         setError(''); 
+        
         try {
-            const response = await fetch('http://localhost:8000/api/login', {
+            // ==========================================================
+            // PASO 1: OBTENER LA COOKIE CSRF DE SANCTUM
+            // Esto es crucial para solucionar el error 419 (CSRF Mismatch).
+            // ==========================================================
+            const csrfResponse = await fetch(`${API_URL}/sanctum/csrf-cookie`, {
+                method: 'GET',
+                // CRUCIAL: Incluye las cookies en la solicitud y permite recibirlas.
+                credentials: 'include', 
+            });
+
+            if (!csrfResponse.ok) {
+                throw new Error("Fallo al obtener la cookie CSRF. Revisa el CORS en el backend.");
+            }
+
+            // ==========================================================
+            // PASO 2: REALIZAR LA SOLICITUD DE LOGIN
+            // El navegador ahora enviará la cookie CSRF automáticamente.
+            // ==========================================================
+            const loginResponse = await fetch(`${API_URL}/api/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -20,28 +45,49 @@ export default function Login(){
                     Comercial: comercial, 
                     Pass: contrasenna,    
                 }),
+                // CRUCIAL: Incluye las cookies de sesión/CSRF en el login.
+                credentials: 'include', 
             });
             
-            // CORRECCIÓN: Leer el cuerpo de la respuesta SOLO UNA VEZ
-            const data = await response.json(); 
+            // --- Manejo de la Respuesta del Servidor ---
+            
+            if (!loginResponse.ok) {
+                
+                // Si el servidor devuelve el error 419
+                if (loginResponse.status === 419) {
+                    throw new Error("ERROR 419: Sesión expirada o token CSRF inválido. Revisa tu archivo cors.php.");
+                }
+                
+                let errorData;
+                const contentType = loginResponse.headers.get("content-type");
 
-            if (!response.ok) {
-                // Si la respuesta no es OK (ej. 401), 'data' contiene el error del servidor.
-                const errorMessage = data.message || `Error del servidor (Código ${response.status}).`;
+                // Intentar parsear JSON solo si el Content-Type lo indica
+                if (contentType && contentType.includes("application/json")) {
+                    errorData = await loginResponse.json();
+                } else {
+                    // Si el servidor devuelve HTML (ej. un 500, o un error que no es JSON)
+                    const errorText = await loginResponse.text();
+                    console.error("Respuesta no-JSON del servidor:", errorText);
+                    throw new Error(`Error ${loginResponse.status}. El servidor no devolvió un JSON válido.`);
+                }
+
+                // Si el error es un JSON válido, mostramos el mensaje del servidor
+                const errorMessage = errorData.message || `Error del servidor (Código ${loginResponse.status}).`;
                 throw new Error(errorMessage);
             }
 
-            // Si es exitoso (200)
+            // --- Si la solicitud es exitosa (200 OK) ---
+            const data = await loginResponse.json(); 
+
             localStorage.setItem('token', data.token);
             localStorage.setItem('comercialId', data.comercialId);
-            
-            // Guardamos el nombre del usuario para mostrarlo en HomePage
             localStorage.setItem('comercialName', comercial); 
             
             navigate("/Home"); 
 
         } catch (err) {
             console.error("Error al iniciar sesión:", err.message);
+            // Mostrar el mensaje de error capturado en la interfaz
             setError(err.message || "No se pudo conectar con el servidor. ¿Está el backend corriendo?");
             alert(err.message || "No se pudo conectar con el servidor.");
         }
