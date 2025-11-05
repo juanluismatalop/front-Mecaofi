@@ -3,19 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import AddClientModal from './addClientModal';
 import ViewClientModal from './viewClientModal';
 import AddComercialModal from './addComercialModal';
-import AddMachineModal from './addMachineModal'; // 🚨 Importación correcta
+import AddMachineModal from './addMachineModal'; 
 import ManageComercialsModal from './ManageComercialsModal'; 
-import DownloadRutasModal from './DownloadRutasModal';
+import DownloadRutasModal from './DownloadRutasModal'; 
+import ViewCalendarModal from './ViewCalendarModal'; 
+
 import './HomePage.css';
 import logo from '../assets/Logo-Mecaofi.jpg';
 
 const CLIENTES_API_URL = 'http://localhost:8000/api/clientes'; 
 const COMERCIALES_API_URL = 'http://localhost:8000/api/comerciales/';
+const VISITAS_API_URL = 'http://localhost:8000/api/visitas'; 
 const ADMIN_ID = 10; 
 
 export default function HomePage() {
     const [clientes, setClientes] = useState([]);
     const [comerciales, setComerciales] = useState([]);
+    const [visitas, setVisitas] = useState([]); // Estado para Visitas
     const [selectedComercialId, setSelectedComercialId] = useState('all');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -27,7 +31,8 @@ export default function HomePage() {
     const [showComercialModal, setShowComercialModal] = useState(false); 
     const [showManageComercialsModal, setShowManageComercialsModal] = useState(false); 
     const [showDownloadModal, setShowDownloadModal] = useState(false);
-    const [showAddMachineModal, setShowAddMachineModal] = useState(false); // ✅ Estado para AddMachineModal
+    const [showAddMachineModal, setShowAddMachineModal] = useState(false);
+    const [showCalendarModal, setShowCalendarModal] = useState(false); // Estado para Calendario
 
     const [searchTerm, setSearchTerm] = useState('');
     const [searchCity, setSearchCity] = useState('');
@@ -45,6 +50,7 @@ export default function HomePage() {
         navigate('/');
     };
     
+    // --- Autenticación ---
     useEffect(() => {
         const token = localStorage.getItem('token');
         const storedUserId = localStorage.getItem('comercialId');
@@ -72,7 +78,8 @@ export default function HomePage() {
         
         setAuthChecked(true);
     }, []); 
-    
+
+    // --- Fetch de Clientes ---
     const fetchClientes = async () => {
         const token = localStorage.getItem('token');
         setLoading(true);
@@ -105,6 +112,7 @@ export default function HomePage() {
         }
     };
 
+    // --- Fetch de Comerciales ---
     const fetchComerciales = async () => {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -130,6 +138,33 @@ export default function HomePage() {
         }
     };
     
+    // --- Fetch de Visitas ---
+    const fetchVisitas = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        try {
+            const response = await fetch(VISITAS_API_URL, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                console.error(`Error ${response.status} al obtener visitas: ${response.statusText}`);
+                return; 
+            }
+
+            const data = await response.json();
+            setVisitas(data);
+        } catch (e) {
+            console.error("Error en la petición de visitas:", e.message);
+        }
+    };
+    
+    // --- useEffect Principal (Llama a Clientes y Visitas) ---
     useEffect(() => {
         if (authChecked && userId !== null) {
             const token = localStorage.getItem('token');
@@ -140,7 +175,7 @@ export default function HomePage() {
                 return;
             }
             
-            const promises = [fetchClientes()];
+            const promises = [fetchClientes(), fetchVisitas()]; 
             if (isAdmin) {
                 promises.push(fetchComerciales());
             }
@@ -154,6 +189,7 @@ export default function HomePage() {
         }
     }, [authChecked, userId]);
     
+    // --- Lógica de Filtrado (useMemo) ---
     const clientesFiltrados = useMemo(() => {
         const lowerSearchTerm = searchTerm.toLowerCase().trim();
         const lowerSearchCity = searchCity.toLowerCase().trim();
@@ -161,15 +197,18 @@ export default function HomePage() {
         let clientesVisibles = clientes;
         const isAdmin = userId === ADMIN_ID;
 
+        // Filtrar por comercial seleccionado (solo admin)
         if (isAdmin && selectedComercialId !== 'all') {
             const filterId = parseInt(selectedComercialId, 10);
             clientesVisibles = clientesVisibles.filter(cliente => cliente.IdComercial === filterId);
         }
         
+        // Filtrar por el propio ID del comercial (si no es admin)
         if (userId !== null && userId !== ADMIN_ID) {
              clientesVisibles = clientesVisibles.filter(cliente => cliente.IdComercial === userId);
         }
         
+        // Filtrar por término de búsqueda y ciudad
         return clientesVisibles.filter(cliente => {
             const comercialName = cliente.NombreComercial || '';
 
@@ -186,9 +225,9 @@ export default function HomePage() {
     }, [clientes, searchTerm, searchCity, userId, selectedComercialId]); 
     
     
+    // --- Handlers ---
+
     const handleClientAdded = (newClient) => {
-        // CORREGIDO: Añadir el nuevo cliente localmente y cerrar el modal. 
-        // ¡No se llama a fetchClientes()!
         if (newClient) {
             setClientes(prevClientes => [newClient, ...prevClientes]); 
         }
@@ -196,12 +235,9 @@ export default function HomePage() {
     };
 
     const handleComercialRegistered = (newComercial) => {
-        // CORREGIDO: Añadir el nuevo comercial localmente. 
-        // ¡No se llama a fetchComerciales()! El modal se cerrará solo con su temporizador.
         if (newComercial) {
             setComerciales(prevComerciales => [...prevComerciales, newComercial]);
         }
-        // No llamamos a setShowComercialModal(false) para no interrumpir el temporizador del modal.
     }
 
     const handleMachineAdded = (newMachine) => {
@@ -261,6 +297,11 @@ export default function HomePage() {
     const handleOpenDownloadModal = () => {
         setShowDownloadModal(true);
     };
+    
+    // Función para abrir el modal del calendario
+    const handleOpenCalendarModal = () => {
+        setShowCalendarModal(true);
+    };
 
 
     if (loading || !authChecked) {
@@ -307,12 +348,34 @@ export default function HomePage() {
                     <label htmlFor="localidad" className="form__label">Localidad</label>
                 </div>
                 
+                {/* ⭐️ 1. BOTÓN CALENDARIO (Ver Visitas - Visible para TODOS) ⭐️ */}
                 <button 
                     className='boton2' 
-                    onClick={handleOpenDownloadModal}
-                    style={{ backgroundColor: '#4CAF50', color: 'white', fontWeight: 'bold' }}
+                    onClick={handleOpenCalendarModal} 
+                    style={{ 
+                        backgroundColor: '#4CAF50', // Verde
+                        color: 'white', 
+                        fontWeight: 'bold',
+                        marginLeft: '10px'
+                    }}
+                    title='Ver todas las visitas programadas en formato calendario'
                 >
-                    Descargar Rutas 📅
+                    Ver Calendario 🗓️
+                </button>
+
+                {/* ⭐️ 2. BOTÓN DE RUTAS (Descargar - Visible para TODOS) ⭐️ */}
+                <button 
+                    className='boton2' 
+                    onClick={handleOpenDownloadModal} 
+                    style={{ 
+                        backgroundColor: '#007bff', // Azul
+                        color: 'white', 
+                        fontWeight: 'bold',
+                        marginLeft: '10px' 
+                    }}
+                    title='Generar y descargar archivo de rutas del mes'
+                >
+                    Descargar Rutas ⬇️
                 </button>
                 
                 {isAdmin && (
@@ -341,10 +404,10 @@ export default function HomePage() {
             <div className="table-container">
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '15px' }}>
                     <button className='boton' onClick={() => setShowModal(true)}>Añadir Cliente</button>
-                    {isAdmin && ( // Mostrar solo si es Administrador
+                    {isAdmin && ( 
                         <button 
                             className='boton' 
-                            onClick={() => setShowAddMachineModal(true)} // 3. ACCIÓN PARA ABRIR EL MODAL
+                            onClick={() => setShowAddMachineModal(true)}
                             title='Añadir Nueva Máquina'
                         >
                             Añadir Máquina
@@ -409,14 +472,12 @@ export default function HomePage() {
                                 <td>{cliente.Ciudad}</td>
                                 <td>{cliente.Correo}</td>
                                 
-                                {/* CORRECCIÓN: Columna del Comercial Asignado (solo para Admin) */}
                                 {isAdmin && (
                                     <td>{cliente.NombreComercial || 'Sin Asignar'}</td> 
                                 )}
                                 
-                                {/* Columna de Acciones (para el botón Eliminar si es Admin) */}
-                                {isAdmin && (
-                                    <td style={{ textAlign: 'center' }}>
+                                <td style={{ textAlign: 'center' }}>
+                                    {isAdmin && (
                                         <button 
                                             className='delete-button'
                                             onClick={(e) => handleDeleteClientInTable(cliente.Id, cliente.Nombre, e)}
@@ -424,13 +485,15 @@ export default function HomePage() {
                                         >
                                             Eliminar
                                         </button>
-                                    </td>
-                                )}
+                                    )}
+                                </td>
                             </tr>
                         ))}
                     </tbody>
                 </table>
             </div>
+
+            {/* --- Modales --- */}
 
             <AddClientModal
                 show={showModal}
@@ -468,7 +531,15 @@ export default function HomePage() {
                 ADMIN_ID={ADMIN_ID}
             /> 
             
-            {/* ⭐️ COMPONENTE AGREGADO: Esto es lo que faltaba para que se abriera ⭐️ */}
+            {/* Renderiza el Modal de Calendario */}
+            <ViewCalendarModal
+                show={showCalendarModal}
+                onClose={() => setShowCalendarModal(false)}
+                visitas={visitas} 
+                userId={userId}
+                ADMIN_ID={ADMIN_ID}
+            /> 
+            
             <AddMachineModal 
                 show={showAddMachineModal}
                 onClose={() => setShowAddMachineModal(false)}

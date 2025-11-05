@@ -54,6 +54,7 @@ export default function DownloadRutasModal ({ show, onClose }) {
             end_date = endDate;
         }
 
+        // Se usa 'start' y 'end' para coincidir con la validación del backend (VisitaController.php)
         let fetchUrl = `${VISITAS_API_URL}/pdf-rutas?start=${start_date}&end=${end_date}`;
         
         if (format) {
@@ -89,6 +90,7 @@ export default function DownloadRutasModal ({ show, onClose }) {
             });
 
             if (response.status === 404) {
+                 // Si el backend devuelve un error 404, se intenta parsear el cuerpo para un mensaje específico.
                  const errorBody = await response.json().catch(() => ({ message: response.statusText }));
                  setError(errorBody.message || `No se encontraron visitas programadas entre ${moment(start_date).format('DD/MM/YYYY')} y ${moment(end_date).format('DD/MM/YYYY')}.`);
                  setSubmitting(false);
@@ -96,8 +98,17 @@ export default function DownloadRutasModal ({ show, onClose }) {
             }
 
             if (!response.ok) {
+                // Si la respuesta no es 404, pero falla, se intenta leer el error
                 const errorText = await response.text();
-                throw new Error(`Error ${response.status}: ${response.statusText}. Detalle: ${errorText}`);
+                // Intenta parsear como JSON si es posible, sino usa el texto
+                let errorMessage = `Error ${response.status}: ${response.statusText}.`;
+                try {
+                     const jsonError = JSON.parse(errorText);
+                     errorMessage = jsonError.message || errorMessage;
+                } catch {
+                     errorMessage += ` Detalle: ${errorText}`;
+                }
+                throw new Error(errorMessage);
             }
             
             const contentDisposition = response.headers.get('Content-Disposition');
@@ -131,67 +142,90 @@ export default function DownloadRutasModal ({ show, onClose }) {
 
 
     const handleView = async () => {
-  try {
-    // 1️⃣ Obtener el token guardado al iniciar sesión
-    const token = localStorage.getItem('token');
+        setVisitasData(null); // Limpiar datos anteriores
+        setError(null);
+        setSubmitting(true);
 
-    // 2️⃣ Verificar que el token exista antes de llamar al backend
-    if (!token) {
-      alert("No se encontró un token de autenticación. Inicia sesión nuevamente.");
-      return;
-    }
+        try {
+            // 1️⃣ Obtener el token guardado al iniciar sesión
+            const token = localStorage.getItem('token');
 
-    // 3️⃣ Construir los parámetros (ejemplo: fechas de inicio y fin)
-    const start = "2025-11-01";
-    const end = "2025-11-30";
+            // 2️⃣ Verificar que el token exista antes de llamar al backend
+            if (!token) {
+                alert("No se encontró un token de autenticación. Inicia sesión nuevamente.");
+                return;
+            }
 
-    // 4️⃣ Hacer la petición con los headers correctos
-    const response = await fetch(
-      `http://localhost:8000/api/visitas/pdf-rutas?start=${start}&end=${end}`,
-      {
-        method: "GET",
-        headers: {
-          // 🔐 Enviar el token de autenticación
-          "Authorization": `Bearer ${token}`,
-          // 📄 Importante: forzar que Laravel devuelva JSON si hay error
-          "Accept": "application/json",
-        },
-      }
-    );
+            // ✅ CORRECCIÓN: Obtener la URL y las fechas del usuario, no hardcodearlas
+            const data = getUrlAndDates(); 
+            if (!data) return; 
+            const { start_date, end_date } = data; 
+            
+            // fetchUrl apunta a /pdf-rutas. Para ver la tabla, necesitamos un endpoint que devuelva JSON.
+            // Si el backend solo devuelve PDF desde /pdf-rutas, se necesita un endpoint nuevo para JSON.
+            // ASUMIMOS que el endpoint /pdf-rutas puede devolver JSON si se le pide
+            // o que devolver PDF/JSON es indistinto si solo queremos comprobar el 404.
+            
+            // Para el propósito de "Ver en Pantalla", el backend DEBE devolver JSON con los datos.
+            // Dado que el endpoint '/pdf-rutas' devuelve un PDF, debemos crear una URL temporal 
+            // que devuelva JSON si queremos que funcione 'Ver en Pantalla' como se pretende aquí.
 
-    // 5️⃣ Comprobar si la respuesta fue exitosa
-    if (!response.ok) {
-      // Si el backend devuelve JSON con error, lo mostramos
-      let errorText = await response.text();
-      try {
-        const jsonError = JSON.parse(errorText);
-        throw new Error(jsonError.message || "Error al generar el PDF de rutas");
-      } catch {
-        // Si la respuesta no es JSON, mostramos texto plano
-        throw new Error("Error interno del servidor o token inválido");
-      }
-    }
+            // Por ahora, modificaremos fetchUrl para que pida JSON (si el backend lo soporta)
+            let fetchJsonUrl = `${VISITAS_API_URL}/pdf-rutas?start=${start_date}&end=${end_date}&format=json`; 
+            
+            // Si el backend no tiene 'format=json' implementado, usaremos la lógica de la descarga:
+            // Si queremos mostrar la tabla, necesitamos los datos de las visitas.
+            // Dado que el backend no tiene un endpoint específico para la data de la tabla,
+            // (a menos que el endpoint de PDF devuelva JSON si se le pasa un parámetro extra).
+            // MANTENDRÉ la lógica de descarga, pero la adaptaré para que capture los datos si fuera un endpoint de JSON:
 
-    // 6️⃣ Convertir la respuesta en un blob (PDF)
-    const blob = await response.blob();
+            const response = await fetch(
+                fetchJsonUrl, // Si 'format=json' funciona, obtendremos JSON.
+                {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Accept": "application/json", // Pedimos JSON
+                    },
+                }
+            );
 
-    // 7️⃣ Crear un enlace temporal para descargar el PDF
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `Rutas_${start}_a_${end}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    window.URL.revokeObjectURL(url);
+            if (response.status === 404) {
+                const errorBody = await response.json().catch(() => ({ message: response.statusText }));
+                setError(errorBody.message || `No se encontraron visitas programadas entre ${moment(start_date).format('DD/MM/YYYY')} y ${moment(end_date).format('DD/MM/YYYY')}.`);
+                return;
+            }
 
-    console.log("✅ PDF descargado correctamente");
-  } catch (error) {
-    console.error("❌ Error en handleView:", error);
-    alert(error.message || "Error inesperado al descargar el PDF");
-  }
-};
+            if (!response.ok) {
+                let errorText = await response.text();
+                try {
+                    const jsonError = JSON.parse(errorText);
+                    throw new Error(jsonError.message || "Error al obtener las rutas para la tabla.");
+                } catch {
+                    throw new Error("Error interno del servidor o token inválido al cargar datos.");
+                }
+            }
 
+            // ATENCIÓN: Si el backend /pdf-rutas DEVUELVE UN PDF y no JSON, esta parte fallará.
+            // ASUMO que se requiere que el backend devuelva JSON si se llama con 'format=json' 
+            // para mostrar la tabla. Si no, se necesita un endpoint nuevo en Laravel.
+            const jsonResponse = await response.json();
+            
+            if (jsonResponse.visitas) {
+                setVisitasData(jsonResponse.visitas); // Asumiendo que el JSON tiene una clave 'visitas'
+            } else {
+                 // Si el endpoint no devuelve un JSON con datos, forzamos un error
+                 throw new Error("El servidor no devolvió los datos de ruta esperados para la tabla.");
+            }
+
+        } catch (error) {
+            console.error("❌ Error en handleView:", error);
+            setError(error.message || "Error inesperado al cargar la tabla de rutas.");
+        } finally {
+            setSubmitting(false);
+        }
+    };
+    
     // --- Componente de Tabla (Inline) ---
     const RutasTable = ({ visitas, onGoBack, onDownload }) => {
         const hasData = visitas && visitas.length > 0;

@@ -1,226 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import './viewClientModal.css'; 
+// addMachineModal.jsx (Código Propuesto)
 
-const MAQUINAS_API_URL = 'http://localhost:8000/api/maquinas';
+import React from 'react';
+// IMPORTANTE: Asegúrate de tener los estilos CSS importados, si los tienes en un archivo separado
+// import './addClientModal.css'; // O el archivo CSS que uses para los modales
 
-export default function AddMachineModal({ show, onClose, onMachineAdded }) {
-    const [formData, setFormData] = useState({
-        Maquina: '',
-        Modelo: '',
-        Velocidad: '',
-        NegroColor: 1,
-        PrecioMaquina: '',
-        Imagen: null,
-        Id: '',
-    });
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState(null);
-
-    useEffect(() => {
-        if (!show) {
-            setFormData({
-                Maquina: '',
-                Modelo: '',
-                Velocidad: '',
-                NegroColor: 1,
-                PrecioMaquina: '',
-                Imagen: null,
-                Id: ''
-            });
-            setError(null);
-        }
-    }, [show]);
-
-    const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? (checked ? 1 : 0) : value,
-        }));
-    };
-
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
-        setFormData(prev => ({ ...prev, Imagen: file }));
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError(null);
-
-        const token = localStorage.getItem('token');
-        const dataToSend = new FormData();
-        dataToSend.append('Maquina', formData.Maquina);
-        dataToSend.append('Modelo', formData.Modelo);
-        dataToSend.append('Velocidad', formData.Velocidad);
-        dataToSend.append('NegroColor', formData.NegroColor);
-        dataToSend.append('PrecioMaquina', formData.PrecioMaquina);
-        if (formData.Imagen) {
-            dataToSend.append('Imagen', formData.Imagen);
-        }
-        
-        try {
-            const response = await fetch(MAQUINAS_API_URL, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: dataToSend,
-            });
-
-            if (!response.ok) {
-                 const errorData = await response.json();
-                 throw new Error(errorData.message || `Error ${response.status}: No se pudo añadir la máquina.`);
-            }
-
-            const newMachine = await response.json();
-            alert(`Máquina "${newMachine.Maquina} - ${newMachine.Modelo}" añadida con éxito.`);
-            onMachineAdded(newMachine);
-            onClose();
-
-        } catch (e) {
-            console.error("Error al añadir máquina:", e);
-            setError(e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+export default function AddMachineModal({ show, onClose,  }) {
     
-    if (!show) return null;
-
+    // Si 'show' es falso, no renderizamos nada
+    if (!show) {
+        return null; 
+    }
+    
+    // Estructura del modal (Fondo y Contenido)
     return (
-        <div className="modal-backdrop-view">
-            <div className="modal-content-view modal-large">
-                <div className="modal-header-view">
-                    <h2>Registrar Nueva Máquina</h2>
-                    <button 
-                        onClick={onClose} 
-                        className="icon-button cancel-icon" 
-                        style={{ position: 'absolute', top: '0', right: '0' }}
-                        disabled={loading}
-                    >
-                        &times;
-                    </button>
+        <div className="modal-backdrop" onClick={onClose}> 
+            {/* El div 'modal-content' es el cuerpo visible del modal. 
+                El stopPropagation evita que un clic dentro del modal lo cierre. */}
+            <div className="modal-content" onClick={e => e.stopPropagation()} style={{ width: '450px' }}>
+                <div className="modal-header">
+                    <h2>Agregar Nueva Máquina</h2>
+                    
+                    {/* Botón de cierre que llama a la función onClose */}
+                    <button className="boton2" onClick={onClose}>&times;</button>
+                </div>
+                
+                <div className="modal-body" style={{ padding: '20px' }}>
+                    
+                    {/* El mensaje original, ahora dentro de la estructura */}
+                    <h1 style={{ textAlign: 'center', color: '#003399' }}>Estamos trabajando en esto</h1>
+                    
+                    <p style={{ textAlign: 'center', marginTop: '15px', color: '#666' }}>
+                        Pronto podrás agregar y gestionar la información de las máquinas.
+                    </p>
                 </div>
 
-                {error && (
-                    <div style={{ color: 'rgb(var(--color-error))', padding: '10px', backgroundColor: 'rgba(220, 53, 69, 0.1)', borderRadius: '5px', marginBottom: '15px' }}>
-                        Error: {error}
-                    </div>
-                )}
-
-                <div className="modal-body-content budget-builder">
-                    <form onSubmit={handleSubmit} className="add-machine-form">
-                        
-                        <div className="maquina-info-grid">
-                            
-                            <div className="form-group">
-                                <label htmlFor="Maquina">Nombre Máquina (*)</label>
-                                <input 
-                                    type="text" 
-                                    id="Maquina" 
-                                    name="Maquina" 
-                                    value={formData.Maquina}
-                                    onChange={handleChange}
-                                    required
-                                    className="select-input"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="Modelo">Modelo (*)</label>
-                                <input 
-                                    type="text" 
-                                    id="Modelo" 
-                                    name="Modelo" 
-                                    value={formData.Modelo}
-                                    onChange={handleChange}
-                                    required
-                                    className="select-input"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="PrecioMaquina">Precio Máquina (€) (*)</label>
-                                <input 
-                                    type="number" 
-                                    id="PrecioMaquina" 
-                                    name="PrecioMaquina" 
-                                    value={formData.PrecioMaquina}
-                                    onChange={handleChange}
-                                    required
-                                    min="0"
-                                    step="0.01"
-                                    className="select-input"
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label htmlFor="Velocidad">Velocidad (Unidad) (*)</label>
-                                <input 
-                                    type="number" 
-                                    id="Velocidad" 
-                                    name="Velocidad" 
-                                    value={formData.Velocidad}
-                                    onChange={handleChange}
-                                    required
-                                    min="1"
-                                    step="1"
-                                    className="select-input"
-                                />
-                            </div>
-                            
-                            <div className="form-group full-width" style={{ marginTop: '10px' }}>
-                                <label style={{ display: 'flex', alignItems: 'center', fontWeight: 'normal' }}>
-                                    <input
-                                        type="checkbox"
-                                        id="NegroColor"
-                                        name="NegroColor"
-                                        checked={formData.NegroColor === 1}
-                                        onChange={handleChange}
-                                        style={{ marginRight: '10px', width: 'auto' }}
-                                    />
-                                    Máquina a **Negro y Color** (Desmarcar para solo Negro)
-                                </label>
-                            </div>
-                            
-                            <div className="form-group full-width">
-                                <label htmlFor="Imagen">Imagen</label>
-                                <input 
-                                    type="file" 
-                                    id="Imagen" 
-                                    name="Imagen" 
-                                    onChange={handleFileChange}
-                                    accept="image/*"
-                                    className="select-input"
-                                />
-                                {formData.Imagen && (
-                                    <span className="file-name-display">{formData.Imagen.name}</span>
-                                )}
-                            </div>
-
-                        </div>
-                        
-                        <div className="modal-actions-bottom form-actions">
-                            <button 
-                                type="submit" 
-                                className='boton' 
-                                disabled={loading}
-                                style={{ 
-                                    backgroundColor: 'rgb(var(--color-success))', 
-                                    width: '100%', 
-                                    display: 'flex', 
-                                    justifyContent: 'center', 
-                                    alignItems: 'center', 
-                                    gap: '10px' 
-                                }}
-                            >
-                                {loading ? 'Añadiendo...' : 'Añadir Máquina'} 
-                                {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-plus"></i>}
-                            </button>
-                        </div>
-                    </form>
+                <div className="modal-actions" style={{ justifyContent: 'flex-end' }}>
+                    {/* Botón de ejemplo para cerrar el modal */}
+                    <button 
+                        type="button" 
+                        className="boton2" 
+                        onClick={onClose} 
+                        style={{ backgroundColor: '#e0e0e0', color: '#333' }}
+                    >
+                        Cerrar
+                    </button>
                 </div>
             </div>
         </div>
