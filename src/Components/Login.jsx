@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 // ** CONFIGURACIÓN **
 // Asegúrate de que esta URL coincida con la de tu backend (Laravel)
 // ==========================================================
-const API_URL = 'https://www.mecaofi.com';
+const API_URL = 'http://localhost:8000';
 
 export default function Login(){
     const [comercial, setComercial] = useState(''); 
