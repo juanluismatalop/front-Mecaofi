@@ -1,188 +1,224 @@
-import React, { useState } from 'react';
-// Asume que este archivo CSS existe en la misma carpeta
-import './AddMaquinaModal.css'; 
+// addMachineModal.jsx
 
-// 🚨 CRÍTICO: Reemplaza estos valores con tu configuración real 🚨
-const API_BASE_URL = 'http://localhost:8000'; // Tu URL base de Laravel
-const API_TOKEN = 'TU_TOKEN_DE_AUTENTICACION'; // Token Sanctum del usuario logueado
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "./addClientModal.css"; 
 
-/**
- * Modal para añadir una nueva Máquina.
- *
- * @param {object} props
- * @param {boolean} props.isOpen - Si el modal está abierto.
- * @param {function} props.onClose - Función para cerrar el modal.
- * @param {function} props.onSuccess - Función a ejecutar tras una creación exitosa.
- */
-export default function addMaquinaModal({ isOpen, onClose, onSuccess }){
-    
-    const initialFormData = {
-        Maquina: '',
-        Modelo: '',
-        Velocidad: '',
-        NegroColor: 1, // Valor por defecto
-        Imagen: '',
-    };
-    
-    // 1. Estado del Formulario
-    const [formData, setFormData] = useState(initialFormData);
+const AddMachineModal = ({ isOpen, onClose, fetchMachines, machineToEdit, currentIdCliente }) => {
+  const initialState = {
+    Nombre: '',
+    Marca: '',
+    Modelo: '',
+    Nserie: '',
+    // Campos Añadidos:
+    Velocidad: '',
+    PrecioMaquina: '',
+    Imagen: '',
+    Tipo: 1, // 1=Color (o 0=Negro)
+  };
+  const [formData, setFormData] = useState(initialState);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [submitting, setSubmitting] = useState(false); 
 
-    // 2. Estado de la Interfaz
-    const [loading, setLoading] = useState(false);
-    const [message, setMessage] = useState('');
-    const [isError, setIsError] = useState(false);
+  useEffect(() => {
+    if (isOpen) {
+      if (machineToEdit) {
+        setFormData({
+          Nombre: machineToEdit.Nombre || '',
+          Marca: machineToEdit.Marca || '',
+          Modelo: machineToEdit.Modelo || '',
+          Nserie: machineToEdit.Nserie || '',
+          // Carga de campos añadidos
+          Velocidad: machineToEdit.Velocidad || '',
+          PrecioMaquina: machineToEdit.PrecioMaquina || '',
+          Imagen: machineToEdit.Imagen || '',
+          Tipo: machineToEdit.Tipo !== undefined ? machineToEdit.Tipo : 1, 
+        });
+      } else {
+        setFormData(initialState);
+      }
+      
+      setError(null);
+      setSuccessMessage(null);
+      setSubmitting(false);
+    }
+  }, [isOpen, machineToEdit, currentIdCliente]); 
+  
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
 
-    // Maneja el cambio en cualquier campo del formulario
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormData(prevData => ({
-            ...prevData,
-            [name]: name === 'Velocidad' ? parseFloat(value) : (name === 'NegroColor' ? parseInt(value) : value),
-        }));
-    };
-    
-    // Resetea el estado y cierra el modal
-    const handleClose = () => {
-        setFormData(initialFormData); // Limpia el formulario
-        setMessage('');
-        setIsError(false);
-        setLoading(false);
-        onClose();
-    };
+  const handleTipoChange = (e) => {
+    // Asegura que Tipo se guarde como un número entero (0 o 1)
+    const value = parseInt(e.target.value, 10);
+    setFormData((prev) => ({ ...prev, Tipo: value }));
+  };
 
-    // Maneja el envío del formulario
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setMessage('Guardando máquina...');
-        setIsError(false);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError(null);
+    setSuccessMessage(null);
+    setSubmitting(true);
 
-        // Simple chequeo de campos requeridos antes de enviar
-        if (!formData.Maquina || !formData.Modelo || formData.Velocidad === '') {
-            setMessage('🚨 Por favor, completa los campos Nombre, Modelo y Velocidad.');
-            setIsError(true);
-            setLoading(false);
-            return;
-        }
+    if (!currentIdCliente && !machineToEdit) {
+        setError("Error: El ID del cliente no está disponible.");
+        setSubmitting(false);
+        return;
+    }
 
-        try {
-            const response = await fetch(`${API_BASE_URL}/api/maquinas`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${API_TOKEN}`, 
-                },
-                body: JSON.stringify(formData),
-            });
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        throw new Error("Token de autenticación no encontrado.");
+      }
 
-            const result = await response.json();
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      };
+      
+      const dataToSend = {
+          ...formData,
+          // Convertir PrecioMaquina a float (opcional, pero buena práctica)
+          PrecioMaquina: parseFloat(formData.PrecioMaquina) || 0,
+          // Añadir el IdCliente que se pasa por prop
+          IdCliente: machineToEdit ? machineToEdit.IdCliente : currentIdCliente
+      };
 
-            if (response.ok) {
-                setMessage(`✅ Máquina creada exitosamente.`);
-                setIsError(false);
-                onSuccess(); 
-                setTimeout(handleClose, 2000); 
+      if (machineToEdit) {
+        // PATCH/POST para actualizar
+        await axios.post( 
+          `http://localhost:8000/api/maquinas/${machineToEdit.Id}`,
+          dataToSend, 
+          config
+        );
+        setSuccessMessage("Máquina actualizada con éxito.");
+      } else {
+        // POST para crear
+        await axios.post(
+          "http://localhost:8000/api/maquinas",
+          dataToSend, 
+          config
+        );
+        setSuccessMessage("Máquina creada con éxito.");
+      }
 
-            } else {
-                let errorMsg = result.message || 'Error desconocido al crear la máquina.';
-                if (result.errors) {
-                    errorMsg = Object.values(result.errors).flat().join(' | ');
-                }
-                setMessage(`❌ Error (${response.status}): ${errorMsg}`);
-                setIsError(true);
-            }
+      fetchMachines(); 
+      setTimeout(() => {
+        onClose(); 
+      }, 1500);
+    } catch (err) {
+      console.error("Error al guardar la máquina:", err);
+      const errMsg = err.response?.data?.message || err.message || 'Error desconocido al guardar la máquina.';
+      setError(errMsg);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-        } catch (error) {
-            setMessage(`❌ Error de conexión: ${error.message}. Verifica API y Token.`);
-            setIsError(true);
-            console.error('Fetch Error:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
+  if (!isOpen) return null;
 
-    if (!isOpen) return null;
+  return (
+    <div className="modal-backdrop">
+      <div className="modal-content">
+        <h2 className="modal-title">
+          {machineToEdit ? "Editar Máquina" : "Añadir Nueva Máquina"}
+        </h2>
+        
+        {successMessage && <p className="success-message-modal">{successMessage}</p>}
+        {error && <p className="error-message-modal">{error}</p>}
 
-    return (
-        <div className="modal-backdrop"> 
-            <div className="modal-content"> 
-                <span className="close-button" onClick={handleClose}>&times;</span>
-                <h2>Registrar Nueva Máquina</h2>
-                <button 
-                        className="close-button" 
-                        onClick={onClose}
-                        aria-label="Cerrar modal" // Importante para accesibilidad
-                    >
-                        {/* Puedes usar un icono o simplemente el carácter '×' */}
-                        &times; 
-                    </button>
-                
-                <form onSubmit={handleSubmit}>
-                    
-                    <label htmlFor="maquina">Nombre de Máquina/Marca *</label>
-                    <input 
-                        type="text" 
-                        id="maquina" 
-                        name="Maquina" 
-                        value={formData.Maquina}
-                        onChange={handleChange} 
-                        maxLength="100"
-                        required
-                    />
-
-                    <label htmlFor="modelo">Modelo *</label>
-                    <input 
-                        type="text" 
-                        id="modelo" 
-                        name="Modelo" 
-                        value={formData.Modelo}
-                        onChange={handleChange} 
-                        maxLength="100"
-                        required
-                    />
-
-                    <label htmlFor="velocidad">Velocidad (Unidad) *</label>
-                    <input 
-                        type="number" 
-                        step="0.01" 
-                        id="velocidad" 
-                        name="Velocidad" 
-                        value={formData.Velocidad}
-                        onChange={handleChange} 
-                        required
-                    />
-                    
-                    <label htmlFor="negroColor">Tipo (1=ByN/Color, 0=Otro):</label>
-                    <input 
-                        type="number" 
-                        id="negroColor" 
-                        name="NegroColor" 
-                        value={formData.NegroColor}
-                        onChange={handleChange} 
-                        min="0" 
-                        max="1" 
-                    />
-
-                    <label htmlFor="imagen">URL de la Imagen (Opcional):</label>
-                    <input 
-                        type="text" 
-                        id="imagen" 
-                        name="Imagen" 
-                        value={formData.Imagen}
-                        onChange={handleChange} 
-                    />
-
-                    <button type="submit" disabled={loading}>
-                        {loading ? 'Guardando...' : 'Guardar Máquina'}
-                    </button>
-                    
-                    {message && (
-                        <p className={isError ? 'error-message' : 'success-message'}>
-                            {message}
-                        </p>
-                    )}
-                </form>
+        <div className="modal-body">
+            <h1>Añadir Maquina</h1>
+            <form onSubmit={handleSubmit} className="form-container">
+            
+            {/* Fila 1: Nombre y Marca */}
+            <div className="form-group-row">
+                <div className="form-group">
+                    <label htmlFor="Nombre">Nombre/Alias</label>
+                    <input type="text" id="Nombre" name="Nombre" value={formData.Nombre} onChange={handleChange} required />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="Marca">Marca</label>
+                    <input type="text" id="Marca" name="Marca" value={formData.Marca} onChange={handleChange} required />
+                </div>
             </div>
+
+            {/* Fila 2: Modelo y Nserie */}
+            <div className="form-group-row">
+                <div className="form-group">
+                    <label htmlFor="Modelo">Modelo</label>
+                    <input type="text" id="Modelo" name="Modelo" value={formData.Modelo} onChange={handleChange} required />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="Nserie">N° de Serie</label>
+                    <input type="text" id="Nserie" name="Nserie" value={formData.Nserie} onChange={handleChange} required />
+                </div>
+            </div>
+            
+            {/* 🚨 Fila 3: Velocidad y PrecioMaquina (Nuevos campos) */}
+            <div className="form-group-row">
+                <div className="form-group">
+                    <label htmlFor="Velocidad">Velocidad</label>
+                    <input type="text" id="Velocidad" name="Velocidad" value={formData.Velocidad} onChange={handleChange} required />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="PrecioMaquina">Precio Máquina (€)</label>
+                    {/* Usamos type="number" para mejor validación en el cliente */}
+                    <input type="number" step="0.01" id="PrecioMaquina" name="PrecioMaquina" value={formData.PrecioMaquina} onChange={handleChange} required />
+                </div>
+            </div>
+
+            {/* Fila 4: Tipo (0/1) e Imagen */}
+            <div className="form-group-row">
+                <div className="form-group">
+                    <label htmlFor="Tipo">Tipo de Impresión</label>
+                    <select
+                      name="Tipo"
+                      id="Tipo"
+                      value={formData.Tipo} 
+                      onChange={handleTipoChange}
+                      required
+                      className="select-field" 
+                    >
+                      <option value={1}>Color</option>
+                      <option value={0}>Negro</option> 
+                    </select>
+                </div>
+                <div className="form-group">
+                    <label htmlFor="Imagen">URL Imagen (Opcional)</label>
+                    <input type="text" id="Imagen" name="Imagen" value={formData.Imagen} onChange={handleChange} />
+                </div>
+            </div>
+
+            {/* Botones de acción */}
+            <div className="button-group-modal">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="boton2"
+                    disabled={submitting}
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="submit"
+                    className="submit-button"
+                    disabled={submitting}
+                >
+                    {submitting 
+                      ? (machineToEdit ? 'Guardando...' : 'Añadiendo...') 
+                      : (machineToEdit ? 'Guardar Cambios' : 'Añadir Máquina')}
+                </button>
+            </div>
+          </form>
         </div>
-    );
+      </div>
+    </div>
+  );
 };
+
+export default AddMachineModal;
