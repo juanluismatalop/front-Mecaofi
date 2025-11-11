@@ -1,8 +1,8 @@
 :root {
     --vs-primary: 29 92 255;
     --color-error: 220 53 69; 
-    --color-success: 40 167 69; /* Añadir color verde para el botón de 'Ver' */
-    --color-info: 0 123 255; /* Añadir color azul para el botón de 'Descargar' */
+    --color-success: 40 167 69; 
+    --color-info: 0 123 255; 
 }
 
 /* --- Modal Backdrop (Fondo) --- */
@@ -15,95 +15,99 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: fadeIn 0.3s ease both; /* Animación más rápida para UX */
+    animation: fadeIn 0.3s ease both;
     background: rgb(255 255 255 / 40%);
-    z-index: 1000; 
-    backdrop-filter: blur(8px); /* Reducido el blur, 20px es muy pesado */
+    z-index: 1000;
+    backdrop-filter: blur(8px);
 }
 
-/* --- Modal Content (Contenido de la Caja) --- */
+/* --- Modal Content (Caja Principal) --- */
 .modal-content {
-    padding: 1rem 3rem;
+    display: flex;
+    flex-direction: column;
     background: white;
-    max-width: 550px; 
     width: 90%;
-    padding-top: 2rem;
+    max-width: 550px;
+    max-height: 90vh; /* 🔥 límite de altura */
     border-radius: 20px;
     border: 0;
     box-shadow: 0 5px 30px 0 rgb(0 0 0 / 10%);
-    animation: fadeIn 0.3s ease both; /* Usar la misma animación */
-    position: relative; 
     font-family: 'Poppins', sans-serif;
+    animation: fadeIn 0.3s ease both;
+    overflow: hidden; /* para evitar scroll doble */
 }
 
-/* --- Header y Botón de Cierre (X) --- */
+/* --- Header fijo arriba del modal --- */
 .modal-header {
+    flex-shrink: 0;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    padding-bottom: 1rem;
-    position: relative;
-    border-bottom: 1px solid #eee; /* Añadir línea separadora */
+    padding: 1rem 2rem;
+    border-bottom: 1px solid #eee;
+    background: #fff;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
-/* Estilo base para el botón de cierre dentro del header */
-.modal-header .boton2 {
-    filter: grayscale(1);
+.modal-header h2 {
+    font-weight: 600;
+    font-size: 1.5rem;
+    margin: 0;
+}
+
+/* Botón de cierre */
+.modal-header .close-button {
     border: none;
     background: none;
-    position: absolute;
-    top: 5px; 
-    right: 5px; 
-    transition: ease filter, transform 0.3s;
+    font-size: 1.8rem;
     cursor: pointer;
-    transform-origin: center;
-    font-size: 2rem; 
-    line-height: 1;
-    padding: 0;
-    margin: 0;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #333; /* Añadir color por defecto */
+    color: #333;
+    transition: transform 0.2s ease, color 0.2s ease;
 }
 
-/* Estado hover para el botón de cierre (Desanidado de Sass) */
-.modal-header .boton2:hover {
-    filter: grayscale(0);
-    transform: scale(1.1);
+.modal-header .close-button:hover {
+    transform: scale(1.2);
+    color: rgb(var(--vs-primary));
 }
 
-.modal-content h2 {
-    font-weight: 600;
-    font-size: 2rem;
-    margin: 0; 
+/* --- Cuerpo desplazable --- */
+.modal-body-scrollable {
+    flex: 1;
+    overflow-y: auto; /* 🔥 scroll vertical */
+    padding: 1rem 2rem 2rem;
+    scroll-behavior: smooth;
 }
 
-/* --- Mensajes de Feedback --- */
-.error-message-modal {
-    font-size: 1rem;
-    line-height: 1.3rem;
-    padding: 0.5rem 0;
-    color: rgb(var(--color-error));
-    font-weight: 600;
+/* 🔥 Scrollbar personalizado */
+.modal-body-scrollable::-webkit-scrollbar {
+    width: 8px;
 }
-/* Estilo para el mensaje de éxito (si lo usas) */
-.success-message-modal { 
-    font-size: 1rem;
-    line-height: 1.3rem;
-    padding: 0.5rem 0;
-    color: rgb(var(--color-success));
-    font-weight: 600;
+.modal-body-scrollable::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 4px;
+}
+.modal-body-scrollable::-webkit-scrollbar-thumb {
+    background-color: #aaa;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+.modal-body-scrollable::-webkit-scrollbar-thumb:hover {
+    background-color: #666;
 }
 
+/* Firefox */
+.modal-body-scrollable {
+    scrollbar-width: thin;
+    scrollbar-color: #aaa #f0f0f0;
+}
 
-/* --- Formulario y Campos --- */
+/* --- Formulario y campos --- */
 .modal-content form {
     display: flex;
     flex-direction: column;
-    gap: 15px; 
+    gap: 15px;
 }
 
 .form-group {
@@ -125,7 +129,7 @@
     border-radius: 10px;
     font-size: 1rem;
     width: 100%;
-    box-sizing: border-box; 
+    box-sizing: border-box;
 }
 
 .form-group input:focus,
@@ -144,95 +148,68 @@
     flex: 1;
 }
 
-/* Mensaje de párrafo dentro de form-group (como el del mes) */
 .form-group p {
     font-size: 0.9rem;
     color: #666;
     margin-top: 5px;
 }
 
-/* --- Botones de Acción (modal-actions y submit-button/boton2) --- */
-
-.modal-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding-top: 15px;
-    border-top: 1px solid #eee;
-    margin-top: 15px;
+/* --- Mensajes --- */
+.error-message-modal {
+    color: rgb(var(--color-error));
+    font-weight: 600;
+    padding: 0.5rem 0;
+}
+.success-message-modal {
+    color: rgb(var(--color-success));
+    font-weight: 600;
+    padding: 0.5rem 0;
 }
 
-/* Estilo base para todos los botones principales de acción (boton2) */
-.boton2, .submit-button {
+/* --- Botones --- */
+.submit-button, .boton2 {
     display: inline-block;
-    font-size: 0.9rem; /* Ligeramente más grande para mejor tacto */
+    font-size: 0.9rem;
     font-weight: 600;
-    color: white; /* Color de texto blanco por defecto en submit-button */
+    color: white;
     background: rgb(var(--vs-primary));
     padding: 10px 20px;
     border-radius: 10px;
     transition: all 0.25s ease;
-    box-sizing: border-box;
-    border: 0;
+    border: none;
     cursor: pointer;
-    /* Sombras por defecto */
     box-shadow: 0 5px 15px -5px rgb(var(--vs-primary) / 50%);
 }
 
-/* Estado hover para boton2 (Desanidado de Sass) */
-.boton2:hover:not(:disabled), .submit-button:hover:not(:disabled) {
-    box-shadow: 0 10px 15px -5px rgb(var(--vs-primary) / 50%);
+.submit-button:hover:not(:disabled),
+.boton2:hover:not(:disabled) {
     transform: translateY(-2px);
+    box-shadow: 0 10px 15px -5px rgb(var(--vs-primary) / 50%);
 }
 
-/* Estado disabled para boton2 (Desanidado de Sass) */
-.boton2:disabled, .submit-button:disabled {
-    background: #ccc !important; /* Importante para sobreescribir estilos inline */
+.submit-button:disabled,
+.boton2:disabled {
+    background: #ccc !important;
     color: #666 !important;
     cursor: not-allowed;
     box-shadow: none;
-    transform: none;
 }
 
-/* Estilo para el botón secundario (Cerrar o el segundo botón en modal-actions) */
-.modal-actions .boton2:nth-child(2),
-.modal-actions .submit-button:nth-child(2) {
-    background: #e0e0e0;
-    color: #333 !important;
-    box-shadow: 0 5px 15px -5px rgb(0 0 0 / 10%);
-}
-
-/* Hover para el botón secundario (Desanidado de Sass) */
-.modal-actions .boton2:nth-child(2):hover:not(:disabled),
-.modal-actions .submit-button:nth-child(2):hover:not(:disabled) {
-    background: #d0d0d0;
-    box-shadow: 0 10px 15px -5px rgb(0 0 0 / 15%);
-}
-
-/* Estilos específicos para los botones del modal de RUTAS */
-/* Botón 'Descargar PDF' (Azul) - Se le aplica el estilo primario o se sobreescribe */
-.submit-button[style*="007bff"] { 
-    background-color: rgb(var(--color-info)) !important; 
+/* Botones especiales */
+.submit-button[style*="007bff"] {
+    background-color: rgb(var(--color-info)) !important;
     box-shadow: 0 5px 15px -5px rgb(var(--color-info) / 50%);
 }
-.submit-button[style*="007bff"]:hover:not(:disabled) {
-    box-shadow: 0 10px 15px -5px rgb(var(--color-info) / 50%);
-}
-
-/* Botón 'Ver en Pantalla' (Verde) - Se le aplica el estilo de éxito */
-.submit-button[style*="28a745"] { 
+.submit-button[style*="28a745"] {
     background-color: rgb(var(--color-success)) !important;
     box-shadow: 0 5px 15px -5px rgb(var(--color-success) / 50%);
-}
-.submit-button[style*="28a745"]:hover:not(:disabled) {
-    box-shadow: 0 10px 15px -5px rgb(var(--color-success) / 50%);
 }
 
 /* --- Animación --- */
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(10px); 
+        transform: translateY(10px);
     }
     to {
         opacity: 1;

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AddClientModal from './addClientModal';
 import ViewClientModal from './viewClientModal';
 import AddComercialModal from './addComercialModal';
-import AddMachineModal from './addMachineModal'; 
+import AddMachineModal from './AddMachineModal'; 
 import ManageComercialsModal from './ManageComercialsModal'; 
 import ViewCalendarModal from './ViewCalendarModal'; 
 import './HomePage.css';
@@ -18,6 +18,9 @@ export default function HomePage() {
     const [clientes, setClientes] = useState([]);
     const [comerciales, setComerciales] = useState([]);
     const [visitas, setVisitas] = useState([]);
+    // ESTADO CLAVE: Visitas con la información del cliente adjunta
+    const [visitasEnriquecidas, setVisitasEnriquecidas] = useState([]); 
+    
     const [selectedComercialId, setSelectedComercialId] = useState('all');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -43,16 +46,17 @@ export default function HomePage() {
         navigate('/');
     };
     
+    // --- LÓGICA DE AUTENTICACIÓN INICIAL ---
     useEffect(() => {
         const token = localStorage.getItem('token');
         const storedUserId = localStorage.getItem('comercialId');
         const storedUserName = localStorage.getItem('comercialName'); 
 
         if (!token) {
-             setError("Usuario no autenticado. Redirigiendo al login...");
-             setLoading(false);
-             navigate('/'); 
-             return; 
+            setError("Usuario no autenticado. Redirigiendo al login...");
+            setLoading(false);
+            navigate('/'); 
+            return; 
         }
 
         if (storedUserId) {
@@ -60,20 +64,20 @@ export default function HomePage() {
             setUserId(id); 
             
             if (storedUserName) {
-                 setUserName(storedUserName); 
+                setUserName(storedUserName); 
             } else if (id === ADMIN_ID) {
-                 setUserName("Administrador");
+                setUserName("Administrador");
             } else {
-                 setUserName("Comercial");
+                setUserName("Comercial");
             }
         } 
         
         setAuthChecked(true);
-    }, []); 
+    }, [navigate]); 
 
+    // --- FETCH DE DATOS ---
     const fetchClientes = async () => {
         const token = localStorage.getItem('token');
-        setLoading(true);
         setError(null);
 
         try {
@@ -98,7 +102,6 @@ export default function HomePage() {
 
         } catch (e) {
             setError(e.message);
-        } finally {//
         }
     };
 
@@ -142,6 +145,7 @@ export default function HomePage() {
 
             if (!response.ok) {
                 console.error(`Error ${response.status} al obtener visitas: ${response.statusText}`);
+                setVisitas([]);
                 return; 
             }
 
@@ -149,9 +153,52 @@ export default function HomePage() {
             setVisitas(data);
         } catch (e) {
             console.error("Error en la petición de visitas:", e.message);
+            setVisitas([]);
+        }
+    };
+
+    // 🚨 NUEVA FUNCIÓN: Recargar datos específicos para el calendario
+    const reloadCalendarData = async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        try {
+            console.log("🔃 Recargando datos para el calendario...");
+            
+            // Recargar visitas y comerciales para tener datos frescos
+            const [visitasResponse, comercialesResponse] = await Promise.all([
+                fetch(VISITAS_API_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                }),
+                fetch(COMERCIALES_API_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                    },
+                })
+            ]);
+
+            if (visitasResponse.ok) {
+                const visitasData = await visitasResponse.json();
+                setVisitas(visitasData);
+            }
+
+            if (comercialesResponse.ok) {
+                const comercialesData = await comercialesResponse.json();
+                setComerciales(comercialesData);
+            }
+
+        } catch (e) {
+            console.error("Error al recargar datos del calendario:", e.message);
         }
     };
     
+    // --- EFECTO PRINCIPAL DE CARGA DE DATOS ---
     useEffect(() => {
         if (authChecked && userId !== null) {
             const token = localStorage.getItem('token');
@@ -162,9 +209,12 @@ export default function HomePage() {
                 return;
             }
             
+            setLoading(true);
             const promises = [fetchClientes(), fetchVisitas()]; 
             if (isAdmin) {
-                promises.push(fetchComerciales());
+                promises.push(fetchComerciales()); 
+            } else {
+                promises.push(fetchComerciales()); 
             }
 
             Promise.all(promises).finally(() => {
@@ -175,12 +225,59 @@ export default function HomePage() {
             setLoading(false);
         }
     }, [authChecked, userId]);
-    
+
+    // --- 🚨 useMemo CORREGIDO: ENRIQUECIMIENTO DE CLIENTES 🚨 ---
+    const clientesEnriquecidos = useMemo(() => {
+        if (comerciales.length === 0) return clientes;
+
+        const comercialesMap = new Map(comerciales.map(c => [c.Id, c]));
+
+        return clientes.map(c => {
+            const comercial = comercialesMap.get(c.IdComercial); 
+
+            return {
+                ...c,
+                NombreComercial: comercial ? comercial.Nombre : 'Comercial Eliminado', 
+            };
+        });
+    }, [clientes, comerciales]); 
+
+    // --- EFECTO ENRIQUECIMIENTO DE VISITAS (CORREGIDO) ---
+    useEffect(() => {
+        if (visitas.length > 0 && comerciales.length > 0) {
+            
+            const clientesMap = new Map(clientes.map(c => [c.Id, c]));
+            
+            const comercialesMap = new Map(comerciales.map(c => [c.Id.toString(), c])); 
+
+            const visitasConDatos = visitas.map(v => {
+                // 🚨 CORRECCIÓN: Usar los nombres correctos del backend
+                const cliente = clientesMap.get(v.IdCliente); 
+                
+                const comercialIdString = v.IdComercial ? v.IdComercial.toString() : null;
+                
+                const comercial = comercialIdString ? comercialesMap.get(comercialIdString) : null;
+
+                return {
+                    ...v,
+                    NombreCliente: cliente ? cliente.Nombre : 'Cliente Desconocido', 
+                    NombreComercial: comercial ? comercial.Nombre : 'Comercial Desconocido',
+                    clientData: cliente || null,
+                };
+            });
+            
+            setVisitasEnriquecidas(visitasConDatos);
+        } else {
+            setVisitasEnriquecidas([]);
+        }
+    }, [clientes, visitas, comerciales]); 
+
+    // --- LÓGICA DE FILTRADO DE CLIENTES ---
     const clientesFiltrados = useMemo(() => {
         const lowerSearchTerm = searchTerm.toLowerCase().trim();
         const lowerSearchCity = searchCity.toLowerCase().trim();
         
-        let clientesVisibles = clientes;
+        let clientesVisibles = clientesEnriquecidos;
         const isAdmin = userId === ADMIN_ID;
 
         if (isAdmin && selectedComercialId !== 'all') {
@@ -189,28 +286,34 @@ export default function HomePage() {
         }
         
         if (userId !== null && userId !== ADMIN_ID) {
-             clientesVisibles = clientesVisibles.filter(cliente => cliente.IdComercial === userId);
+            clientesVisibles = clientesVisibles.filter(cliente => cliente.IdComercial === userId);
         }
         
         return clientesVisibles.filter(cliente => {
-            const comercialName = cliente.NombreComercial || '';
+            const comercialName = cliente.NombreComercial || ''; 
 
             const matchesSearchTerm = 
                 (cliente.Nombre && cliente.Nombre.toLowerCase().includes(lowerSearchTerm)) ||
                 (cliente.PersonaContacto && cliente.PersonaContacto.toLowerCase().includes(lowerSearchTerm)) ||
-                (comercialName.toLowerCase().includes(lowerSearchTerm));
+                (comercialName.toLowerCase().includes(lowerSearchTerm)); 
 
             const matchesCity = cliente.Ciudad && cliente.Ciudad.toLowerCase().includes(lowerSearchCity);
             
             return matchesSearchTerm && matchesCity;
         });
 
-    }, [clientes, searchTerm, searchCity, userId, selectedComercialId]); 
+    }, [clientesEnriquecidos, searchTerm, searchCity, userId, selectedComercialId]); 
     
-    
+    // --- HANDLERS DE MODALES Y ACCIONES ---
     const handleClientAdded = (newClient) => {
-        if (newClient) {
-            setClientes(prevClientes => [newClient, ...prevClientes]); 
+        const comercialAsignado = comerciales.find(c => c.Id === newClient.IdComercial);
+        const enrichedNewClient = {
+            ...newClient,
+            NombreComercial: comercialAsignado ? comercialAsignado.Nombre : 'Comercial Eliminado'
+        };
+
+        if (enrichedNewClient) {
+            setClientes(prevClientes => [enrichedNewClient, ...prevClientes]); 
         }
         setShowModal(false);
     };
@@ -227,13 +330,20 @@ export default function HomePage() {
     
     const handleClientUpdate = (updatedClient) => {
         setShowViewModal(false); 
+        
+        const comercialAsignado = comerciales.find(c => c.Id === updatedClient.IdComercial);
+        const enrichedUpdatedClient = {
+            ...updatedClient,
+            NombreComercial: comercialAsignado ? comercialAsignado.Nombre : 'Comercial Eliminado'
+        };
+
         setClientes(prevClientes => 
             prevClientes.map(c => 
-                c.Id === updatedClient.Id ? updatedClient : c
+                c.Id === enrichedUpdatedClient.Id ? enrichedUpdatedClient : c
             )
         );
-        if (selectedClient && selectedClient.Id === updatedClient.Id) {
-             setSelectedClient(updatedClient);
+        if (selectedClient && selectedClient.Id === enrichedUpdatedClient.Id) {
+            setSelectedClient(enrichedUpdatedClient);
         }
     };
 
@@ -275,7 +385,14 @@ export default function HomePage() {
         setShowViewModal(true);
     };
     
-    const handleOpenCalendarModal = () => {
+    // 🚨 HANDLER CORREGIDO: Abrir calendario con recarga de datos
+    const handleOpenCalendarModal = async () => {
+        console.log("📅 Abriendo modal de calendario...");
+        
+        // Recargar datos antes de abrir el modal
+        await reloadCalendarData();
+        
+        // Abrir el modal después de recargar datos
         setShowCalendarModal(true);
     };
 
@@ -293,9 +410,11 @@ export default function HomePage() {
     return (
         <div className="homepage-container">
             
+            {/* --- NAV BAR --- */}
             <div className="navBar">
                 <img src={logo} alt="Logo Mecaofi" height={100} width={100}/>
                 
+                {/* Campo de Búsqueda General */}
                 <div className="form__group field" style={{flexGrow: 1}}>
                     <input 
                         type="input" 
@@ -310,6 +429,7 @@ export default function HomePage() {
                     <label htmlFor="cliente" className="form__label">Cliente</label>
                 </div>
                 
+                {/* Campo de Búsqueda por Ciudad */}
                 <div className="form__group field" style={{flexGrow: 1}}>
                     <input 
                         type="input" 
@@ -324,6 +444,7 @@ export default function HomePage() {
                     <label htmlFor="localidad" className="form__label">Localidad</label>
                 </div>
                 
+                {/* Botón Calendario */}
                 <button 
                     className='boton2' 
                     onClick={handleOpenCalendarModal} 
@@ -338,6 +459,7 @@ export default function HomePage() {
                     Ver Calendario 🗓️
                 </button>
                 
+                {/* Botones de Administración (Solo Admin) */}
                 {isAdmin && (
                     <button className='boton2' onClick={() => setShowComercialModal(true)} style={{ marginLeft: '10px' }}>
                         Registrar Comercial
@@ -350,6 +472,7 @@ export default function HomePage() {
                     </button>
                 )}
                 
+                {/* Botón Cerrar Sesión */}
                 <button 
                     className='boton2' 
                     onClick={handleLogout}
@@ -361,9 +484,12 @@ export default function HomePage() {
 
             <h2>Listado de Clientes de {userName} ({clientesFiltrados.length})</h2>
             
+            {/* --- TABLA DE CLIENTES --- */}
             <div className="table-container">
                 <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '15px' }}>
                     <button className='boton' onClick={() => setShowModal(true)}>Añadir Cliente</button>
+                    
+                    {/* Botón Añadir Máquina (Solo Admin) */}
                     {isAdmin && ( 
                         <button 
                             className='boton' 
@@ -373,6 +499,8 @@ export default function HomePage() {
                             Añadir Máquina
                         </button>
                     )}
+                    
+                    {/* Filtro de Clientes por Comercial (Solo Admin) */}
                     {isAdmin && (
                         <div className="form__group field" style={{ width: '250px' }}>
                             <select
@@ -427,7 +555,7 @@ export default function HomePage() {
                                 <td>{cliente.Telefono}</td>
                                 <td>{cliente.Ciudad}</td>
                                 <td>{cliente.Correo}</td>
-                                <td>{cliente.NombreComercial || 'Sin Asignar'}</td>
+                                <td>{cliente.NombreComercial || 'Sin Asignar'}</td> 
                                 <td style={{ textAlign: 'center' }}>
                                     {isAdmin && (
                                         <button 
@@ -445,6 +573,7 @@ export default function HomePage() {
                 </table>
             </div>
 
+            {/* --- MODALES --- */}
             <AddClientModal
                 show={showModal}
                 onClose={() => setShowModal(false)}
@@ -454,11 +583,12 @@ export default function HomePage() {
             <ViewClientModal
                 show={showViewModal}
                 onClose={() => setShowViewModal(false)}
-                cliente={selectedClient}
+                cliente={selectedClient} 
                 onClientUpdate={handleClientUpdate} 
                 onClientDelete={handleClientDelete}
                 userId={userId} 
                 ADMIN_ID={ADMIN_ID}
+                comerciales={comerciales} 
             />
             
             <AddComercialModal
@@ -474,20 +604,21 @@ export default function HomePage() {
                 adminId={ADMIN_ID} 
             />
             
+            {/* 🚨 MODAL DE CALENDARIO - AHORA SE DEBERÍA ABRIR */}
             <ViewCalendarModal
                 show={showCalendarModal}
                 onClose={() => setShowCalendarModal(false)}
-                visitas={visitas} 
-                clientes={clientes}
+                visitas={visitasEnriquecidas}
+                comerciales={comerciales}
                 onViewClient={handleViewClient}
                 userId={userId}
                 ADMIN_ID={ADMIN_ID}
             /> 
             
             <AddMachineModal 
-                show={showAddMachineModal}
+                isOpen={showAddMachineModal} 
                 onClose={() => setShowAddMachineModal(false)}
-                onMachineAdded={handleMachineAdded} 
+                onSuccess={handleMachineAdded}
             />
         </div>
     );

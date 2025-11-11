@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import './viewCalendarModal.css';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import './ViewCalendarModal.css'; // ✅ CSS ya existe
 
+// --- Generador de días del calendario ---
 const generateCalendarDays = (date) => {
   const year = date.getFullYear();
   const month = date.getMonth();
@@ -29,116 +30,202 @@ const generateCalendarDays = (date) => {
   return calendarDays;
 };
 
-// ⭐️ MODIFICADO: Añadimos la prop onViewClient ⭐️
-export default function ViewCalendarModal({ show, onClose, visitas, onViewClient }) {
-  const [visitasConNombres, setVisitasConNombres] = useState([]);
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 10, 1)); // noviembre 2025
-  const [transitionDirection, setTransitionDirection] = useState('none'); // 'left' o 'right'
+export default function ViewCalendarModal({ 
+  show, 
+  onClose, 
+  visitas = [], 
+  comerciales = [], 
+  onViewClient, 
+  userId, 
+  ADMIN_ID 
+}) {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [transitionDirection, setTransitionDirection] = useState('center');
+  const [selectedComercialId, setSelectedComercialId] = useState('all');
+  
+  const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  const dayNames = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
-  // Procesa las visitas, asegurando que tengamos el objeto cliente completo
+  const isAdmin = useMemo(() => userId === ADMIN_ID, [userId, ADMIN_ID]);
+
+  // --- EFECTO DE INICIALIZACIÓN ---
   useEffect(() => {
-    if (!visitas.length) return;
-
-    const visitasProcesadas = visitas.map((v) => ({
-      ...v,
-      NombreCliente:
-        v.cliente?.Nombre ||
-        v.NombreCliente ||
-        'Cliente desconocido',
-      clientData: v.cliente, // ⭐️ CRÍTICO: Guardamos el objeto cliente completo
-    }));
-
-    // Filtramos cualquier visita que no tenga un objeto cliente asociado
-    setVisitasConNombres(visitasProcesadas.filter(v => v.clientData)); 
-  }, [visitas]);
-
-  // Agrupar visitas por fecha
-  const visitasPorFecha = useMemo(() => {
-    return visitasConNombres.reduce((acc, visita) => {
-      const date = visita.Fecha ? visita.Fecha.split('T')[0] : null;
-      if (date) acc[date] = [...(acc[date] || []), visita];
-      return acc;
-    }, {});
-  }, [visitasConNombres]);
-    
-  // ⭐️ NUEVO HANDLER: Función para abrir el modal del cliente
-  const handleVisitClick = (visita) => {
-      // Solo procede si tenemos los datos del cliente y la función del padre
-      if (visita.clientData && onViewClient) {
-          onClose(); // 1. Cierra el modal de calendario
-          onViewClient(visita.clientData); // 2. Llama a la función del padre pasando el cliente
+    if (show && userId !== null) {
+      console.log("📅 Modal abierto. Visitas recibidas:", visitas.length);
+      console.log("📅 Comerciales recibidos:", comerciales.length);
+      
+      // Configurar el filtro inicial
+      if (!isAdmin && userId) {
+        setSelectedComercialId(userId.toString());
+      } else if (isAdmin) {
+        setSelectedComercialId('all');
       }
+    }
+    
+    // Resetear al cerrar el modal
+    if (!show) {
+      setSelectedComercialId('all');
+      setCurrentDate(new Date());
+    }
+  }, [show, userId, isAdmin]);
+
+  // --- FILTRADO ---
+  const filteredVisitas = useMemo(() => {
+    try {
+      if (!visitas || visitas.length === 0) {
+        return [];
+      }
+      
+      let result = visitas;
+      const filterId = parseInt(selectedComercialId, 10);
+
+      // 1. Filtrado para usuario no-admin
+      if (!isAdmin && userId !== null) {
+        result = result.filter(v => {
+          const visitaComercialId = parseInt(v.IdComercial, 10);
+          return visitaComercialId === userId;
+        });
+      }
+      
+      // 2. Filtrado para usuario admin
+      if (isAdmin && selectedComercialId !== 'all') {
+        result = result.filter(v => {
+          const visitaComercialId = parseInt(v.IdComercial, 10);
+          return visitaComercialId === filterId;
+        });
+      }
+      
+      return result;
+      
+    } catch (error) {
+      console.error("❌ Error en filtrado de visitas:", error);
+      return [];
+    }
+  }, [visitas, selectedComercialId, isAdmin, userId]);
+
+  // --- Agrupar visitas por fecha ---
+  const groupedVisitas = useMemo(() => {
+    const groups = {};
+    try {
+      filteredVisitas.forEach(v => {
+        if (v && v.Fecha) {
+          const dateKey = v.Fecha.split('T')[0]; 
+          if (dateKey) {
+            if (!groups[dateKey]) {
+              groups[dateKey] = [];
+            }
+            groups[dateKey].push(v);
+          }
+        }
+      });
+    } catch (error) {
+      console.error("❌ Error agrupando visitas:", error);
+    }
+    return groups; 
+  }, [filteredVisitas]);
+
+  const getDailyVisitas = (date) => {
+    if (!date) return [];
+    try {
+      const dateKey = date.toISOString().split('T')[0];
+      return groupedVisitas[dateKey] || []; 
+    } catch (error) {
+      return [];
+    }
   };
-
-
-  const calendar = useMemo(() => generateCalendarDays(currentDate), [currentDate]);
-
-  if (!show) return null;
-
-  // Navegación de meses
-  const nextMonth = () => {
-    setTransitionDirection('left');
+  
+  const handleMonthChange = (direction) => {
+    setTransitionDirection(direction);
     setTimeout(() => {
-      setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
-      setTransitionDirection('none');
+      setCurrentDate(prevDate => {
+        const newDate = new Date(prevDate.getFullYear(), prevDate.getMonth() + (direction === 'next' ? 1 : -1), 1);
+        return newDate;
+      });
+      setTransitionDirection('center');
     }, 200);
   };
 
-  const prevMonth = () => {
-    setTransitionDirection('right');
-    setTimeout(() => {
-      setCurrentDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
-      setTransitionDirection('none');
-    }, 200);
+  const handleVisitClick = (visit) => {
+    if (visit && visit.clientData) {
+      onViewClient(visit.clientData);
+    } else {
+      console.warn("⚠️ No hay datos del cliente para esta visita:", visit);
+    }
   };
 
-  const isToday = (day) =>
-    day && day.toDateString() === new Date().toDateString();
+  if (!show) return null; 
+
+  const calendarDays = generateCalendarDays(currentDate);
+  const monthTitle = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+  const today = new Date().toISOString().split('T')[0];
 
   return (
     <div className="gc-modal-overlay" onClick={onClose}>
       <div className="gc-modal" onClick={(e) => e.stopPropagation()}>
+        
+        {/* Header */}
         <div className="gc-header">
           <div className="gc-month-nav">
-            <button onClick={prevMonth} className="gc-nav-btn">‹</button>
-            <h2>{currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' })}</h2>
-            <button onClick={nextMonth} className="gc-nav-btn">›</button>
+            <button className="gc-nav-btn" onClick={() => handleMonthChange('prev')} title="Mes anterior">
+              &lt;
+            </button>
+            <h2>{monthTitle}</h2>
+            <button className="gc-nav-btn" onClick={() => handleMonthChange('next')} title="Mes siguiente">
+              &gt;
+            </button>
           </div>
-          <button className="gc-close" onClick={onClose}>
-            &times;
-          </button>
+          <button className="gc-close" onClick={onClose} title="Cerrar">&times;</button>
         </div>
 
-        <div className={`gc-calendar ${transitionDirection}`}>
-          <div className="gc-weekdays">
-            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d) => (
-              <div key={d}>{d}</div>
-            ))}
+        {/* FILTRO COMERCIAL (solo para Admin) */}
+        {isAdmin && (
+          <div className="gc-filter-bar">
+            <label htmlFor="comercialFilter">Filtrar por Comercial:</label>
+            <select
+              id="comercialFilter"
+              value={selectedComercialId}
+              onChange={(e) => setSelectedComercialId(e.target.value)}
+            >
+              <option value="all">Todos los comerciales</option>
+              {comerciales && comerciales
+                .filter(c => c.Id !== ADMIN_ID) 
+                .map(c => (
+                  <option key={c.Id} value={c.Id}>
+                    {c.Nombre}
+                  </option>
+                ))}
+            </select>
           </div>
+        )}
 
+        {/* Contenido del Calendario */}
+        <div className="gc-calendar">
+          <div className="gc-weekdays">
+            {dayNames.map(day => <div key={day}>{day}</div>)}
+          </div>
+          
           <div className="gc-grid">
-            {calendar.map((week, i) =>
-              week.map((day, j) => {
-                const dateString = day ? day.toISOString().split('T')[0] : null;
-                const dayVisitas = dateString ? visitasPorFecha[dateString] || [] : [];
-
+            {calendarDays.map((week, weekIndex) => 
+              week.map((date, dayIndex) => {
+                const isToday = date && date.toISOString().split('T')[0] === today;
+                const dailyVisitas = getDailyVisitas(date); 
+                
                 return (
-                  <div
-                    key={`${i}-${j}`}
-                    className={`gc-day ${day ? '' : 'empty'} ${isToday(day) ? 'today' : ''}`}
+                  <div 
+                    key={`${weekIndex}-${dayIndex}`} 
+                    className={`gc-day ${date ? '' : 'empty'} ${isToday ? 'today' : ''}`}
                   >
-                    {day && (
+                    {date && (
                       <>
-                        <div className="gc-day-number">{day.getDate()}</div>
-                        {dayVisitas.map((v, idx) => (
+                        <div className="gc-day-number">{date.getDate()}</div>
+                        {dailyVisitas.map((visit, i) => (
                           <div 
-                            key={idx} 
-                            // ⭐️ AÑADIDO: Clase y Manejador de clic en el día
-                            className={`gc-event ${v.clientData ? 'clickable-event' : ''}`} 
-                            onClick={() => handleVisitClick(v)}
-                            title={v.clientData ? `Ver cliente: ${v.NombreCliente}` : 'Cliente no disponible'}
+                            key={i}
+                            className={`gc-event ${visit.clientData ? 'clickable-event' : ''}`}
+                            onClick={() => handleVisitClick(visit)}
+                            title={`Comercial: ${visit.NombreComercial || 'N/A'} | Cliente: ${visit.NombreCliente || 'N/A'}`}
                           >
-                            {v.Hora ? `${v.Hora} — ` : ''}{v.NombreCliente}
+                            {visit.Hora ? `${visit.Hora} — ` : ''}{visit.NombreCliente || 'Cliente Desconocido'}
                           </div>
                         ))}
                       </>
@@ -150,25 +237,25 @@ export default function ViewCalendarModal({ show, onClose, visitas, onViewClient
           </div>
         </div>
 
+        {/* Resumen de Visitas */}
         <div className="gc-visits-summary">
-          <h4>Visitas del mes ({visitasConNombres.length})</h4>
+          <h4>Visitas del mes ({filteredVisitas.length})</h4>
           <div className="gc-visits-list">
-            {visitasConNombres.length === 0 ? (
-              <p>No hay visitas programadas.</p>
+            {filteredVisitas.length === 0 ? (
+              <p>No hay visitas programadas para este filtro.</p>
             ) : (
               <ul>
-                {visitasConNombres.map((v, i) => (
+                {filteredVisitas.map((visit, i) => (
                   <li 
                     key={i}
-                    // ⭐️ AÑADIDO: Manejador de clic en el resumen
-                    onClick={() => handleVisitClick(v)}
-                    style={{ cursor: v.clientData ? 'pointer' : 'default' }}
-                    title={v.clientData ? `Ver cliente: ${v.NombreCliente}` : 'Cliente no disponible'}
+                    onClick={() => handleVisitClick(visit)}
+                    style={{ cursor: visit.clientData ? 'pointer' : 'default' }}
+                    title={visit.clientData ? `Ver cliente: ${visit.NombreCliente}` : 'Cliente no disponible'}
                   >
                     <strong>
-                      {v.Fecha.split('T')[0]} {v.Hora || ''}
+                      {visit.Fecha.split('T')[0]} {visit.Hora || ''}
                     </strong>{' '}
-                    — {v.NombreCliente}
+                    — {visit.NombreCliente || 'Cliente Desconocido'}
                   </li>
                 ))}
               </ul>
