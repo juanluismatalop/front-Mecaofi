@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import './GenerateBudgetModal.css';
+import './GenerateBudgetModal.css'; // Asegúrate de tener tu archivo CSS
 
 const API_BASE_URL = 'http://localhost:8000/api';
 const MAQUINAS_API_BASE_URL = `${API_BASE_URL}/maquinas`;
@@ -8,7 +8,20 @@ const PRESUPUESTOS_API_URL = `${API_BASE_URL}/presupuestos`;
 
 const getAuthToken = () => localStorage.getItem('token');
 
-// 🚨 Componente individual para cada máquina (Acordeón) - MANTENIDO IGUAL
+// Función auxiliar para calcular el precio final
+const calcularPrecioFinal = (precio, descuentoPorcentaje) => {
+    if (!precio) return '0.00';
+    const precioNum = parseFloat(precio) || 0;
+    const descuentoNum = parseFloat(descuentoPorcentaje) || 0;
+    
+    // Asumimos que el descuento es un porcentaje (como se maneja en el frontend)
+    const precioFinal = precioNum - (precioNum * descuentoNum / 100);
+    return precioFinal.toFixed(2);
+};
+
+// =========================================================================
+// 🚨 SUBCOMPONENTE: MachineBudgetItem (Contiene la mayoría de los inputs)
+// =========================================================================
 const MachineBudgetItem = ({ maquina, onUpdate, onRemove, saving }) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
@@ -16,19 +29,15 @@ const MachineBudgetItem = ({ maquina, onUpdate, onRemove, saving }) => {
         setIsExpanded(!isExpanded);
     };
 
-    const calcularPrecioFinal = (precio, descuento) => {
-        if (!precio) return '0.00';
-        const precioNum = parseFloat(precio);
-        const descuentoNum = parseFloat(descuento) || 0;
-        return (precioNum - (precioNum * descuentoNum / 100)).toFixed(2);
-    };
-
     const handleFieldChange = (field, value) => {
+        // 1. Actualizar el campo editado
         onUpdate(maquina.Id, field, value);
         
+        // 2. Si el precio o descuento cambian, recalcular el precio final
         if (field === 'precioMaquina' || field === 'descuento') {
             const nuevoPrecio = field === 'precioMaquina' ? value : maquina.precioMaquina;
             const nuevoDescuento = field === 'descuento' ? value : maquina.descuento;
+            
             const precioFinal = calcularPrecioFinal(nuevoPrecio, nuevoDescuento);
             onUpdate(maquina.Id, 'precioFinal', precioFinal);
         }
@@ -80,7 +89,8 @@ const MachineBudgetItem = ({ maquina, onUpdate, onRemove, saving }) => {
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                value={maquina.precioMaquina}
+                                // 🚨 CORRECCIÓN 1: Usar || '' para evitar undefined/null
+                                value={maquina.precioMaquina || ''} 
                                 onChange={(e) => handleFieldChange('precioMaquina', e.target.value)}
                                 disabled={saving}
                                 placeholder="0.00"
@@ -95,7 +105,8 @@ const MachineBudgetItem = ({ maquina, onUpdate, onRemove, saving }) => {
                                 step="0.01"
                                 min="0"
                                 max="100"
-                                value={maquina.descuento}
+                                // 🚨 CORRECCIÓN 2: Usar || '' para evitar undefined/null
+                                value={maquina.descuento || ''} 
                                 onChange={(e) => handleFieldChange('descuento', e.target.value)}
                                 disabled={saving}
                                 placeholder="0"
@@ -108,7 +119,8 @@ const MachineBudgetItem = ({ maquina, onUpdate, onRemove, saving }) => {
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                value={maquina.precioFinal}
+                                // 🚨 CORRECCIÓN 3: Usar || '' para evitar undefined/null
+                                value={maquina.precioFinal || ''} 
                                 readOnly
                                 className="readonly-field"
                                 placeholder="0.00"
@@ -123,8 +135,9 @@ const MachineBudgetItem = ({ maquina, onUpdate, onRemove, saving }) => {
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                value={maquina.costeColor}
-                                onChange={(e) => handleFieldChange('costeColor', e.target.value)}
+                                // 🚨 CORRECCIÓN 4: Usar || '' para evitar undefined/null
+                                value={maquina.costePorCopiaColor || ''} 
+                                onChange={(e) => handleFieldChange('costePorCopiaColor', e.target.value)} 
                                 disabled={saving}
                                 placeholder="0.00"
                             />
@@ -136,24 +149,13 @@ const MachineBudgetItem = ({ maquina, onUpdate, onRemove, saving }) => {
                                 type="number"
                                 step="0.01"
                                 min="0"
-                                value={maquina.costeNegro}
-                                onChange={(e) => handleFieldChange('costeNegro', e.target.value)}
+                                // 🚨 CORRECCIÓN 5: Usar || '' para evitar undefined/null
+                                value={maquina.costePorCopiaNegro || ''}
+                                onChange={(e) => handleFieldChange('costePorCopiaNegro', e.target.value)}
                                 disabled={saving}
                                 placeholder="0.00"
                                 required
                             />
-                        </div>
-                        
-                        <div className="form-group checkbox-group">
-                            <label>
-                                <input
-                                    type="checkbox"
-                                    checked={maquina.renting}
-                                    onChange={(e) => handleFieldChange('renting', e.target.checked)}
-                                    disabled={saving}
-                                />
-                                Incluir Renting
-                            </label>
                         </div>
                     </div>
                 </div>
@@ -162,7 +164,10 @@ const MachineBudgetItem = ({ maquina, onUpdate, onRemove, saving }) => {
     );
 };
 
-// 🚨 COMPONENTE PRINCIPAL
+
+// =========================================================================
+// 🚨 COMPONENTE PRINCIPAL: GenerateBudgetModal
+// =========================================================================
 export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente, clientName, visitaId = null }) {
     
     const [loading, setLoading] = useState(false);
@@ -172,10 +177,10 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
     const [selectedMaquina, setSelectedMaquina] = useState('');
     const [maquinasSeleccionadas, setMaquinasSeleccionadas] = useState([]);
     const [observaciones, setObservaciones] = useState('');
+    const [mesesRenting, setMesesRenting] = useState(''); // Estado para los meses de Renting
 
     useEffect(() => {
         if (isOpen && currentIdCliente) {
-            console.log('✅ MODAL ABIERTO. Buscando máquinas para cliente ID:', currentIdCliente);
             fetchMachines();
             resetForm();
         }
@@ -185,6 +190,7 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
         setSelectedMaquina('');
         setMaquinasSeleccionadas([]);
         setObservaciones('');
+        setMesesRenting('');
         setError(null);
     };
 
@@ -200,18 +206,13 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
                 headers: { Authorization: `Bearer ${token}` }
             });
             
-            let machinesData = response.data;
+            // Lógica de extracción de datos (puede variar según la respuesta real del backend)
+            let machinesData = response.data.data || response.data.maquinas || response.data;
+            if (!Array.isArray(machinesData)) machinesData = [];
             
-            if (response.data && Array.isArray(response.data.data)) {
-                machinesData = response.data.data;
-            } else if (response.data && Array.isArray(response.data.maquinas)) {
-                machinesData = response.data.maquinas;
-            } else if (Array.isArray(response.data)) {
-                machinesData = response.data;
-            }
-            
+            // Filtra y establece las máquinas disponibles
             const filteredMachines = machinesData.filter(m => 
-                m.IdCliente == currentIdCliente || !m.IdCliente
+                m.IdCliente === currentIdCliente || !m.IdCliente
             );
             
             setMaquinas(filteredMachines || []);
@@ -241,12 +242,12 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
         if (maquina) {
             setMaquinasSeleccionadas(prev => [...prev, {
                 ...maquina,
-                precioMaquina: '',
-                descuento: '',
-                precioFinal: '',
-                renting: false,
-                costeColor: '',
-                costeNegro: ''
+                // 🚨 CORRECCIÓN: Usar '' como valor inicial para evitar undefined/null
+                precioMaquina: String(maquina.PrecioVenta || ''), 
+                descuento: String(maquina.Descuento || ''),
+                precioFinal: calcularPrecioFinal(maquina.PrecioVenta, maquina.Descuento || 0),
+                costePorCopiaColor: String(maquina.CostePorCopiaColor || ''), 
+                costePorCopiaNegro: String(maquina.CostePorCopiaNegro || ''), 
             }]);
             setSelectedMaquina('');
             setError(null);
@@ -274,121 +275,63 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
         }
 
         for (const maquina of maquinasSeleccionadas) {
-            if (!maquina.precioMaquina || maquina.precioMaquina === '0' || parseFloat(maquina.precioMaquina) <= 0) {
-                setError(`La máquina "${maquina.Nombre}" debe tener un precio válido mayor a 0`);
+            if (!maquina.precioMaquina || parseFloat(maquina.precioMaquina) <= 0) {
+                setError(`La máquina "${maquina.Nombre}" debe tener un precio de venta válido.`);
                 return false;
             }
-            if (!maquina.costeNegro || maquina.costeNegro === '0' || parseFloat(maquina.costeNegro) < 0) {
-                setError(`La máquina "${maquina.Nombre}" debe tener un coste negro válido`);
+            if (!maquina.costePorCopiaNegro || parseFloat(maquina.costePorCopiaNegro) < 0) {
+                setError(`La máquina "${maquina.Nombre}" debe tener un coste por copia Negro válido.`);
                 return false;
             }
+            if(parseFloat(maquina.precioFinal) < 0) {
+                 setError(`La máquina "${maquina.Nombre}" tiene un descuento excesivo.`);
+                 return false;
+            }
+        }
+        
+        if(mesesRenting && (parseInt(mesesRenting) <= 0 || isNaN(parseInt(mesesRenting)))) {
+             setError('Los meses de Renting deben ser un número entero positivo.');
+             return false;
         }
 
         return true;
     };
 
-    // 🚨 MÉTODO PRINCIPAL CORREGIDO
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        
-        if (!validarFormulario()) return;
 
-        setSaving(true);
-        setError(null);
-
-        try {
-            const token = getAuthToken();
-            if (!token) {
-                throw new Error('No se encontró el token de autenticación');
-            }
-
-            // 🚨 CREAR UN PRESUPUESTO POR CADA MÁQUINA
-            const promises = maquinasSeleccionadas.map(async (maquina) => {
-                const presupuestoData = {
-                    IdCliente: parseInt(currentIdCliente),
-                    IdMaquina: parseInt(maquina.Id),
-                    PrecioMaquina: parseFloat(maquina.precioMaquina) || 0,
-                    Rebaja: parseFloat(maquina.descuento) || 0,
-                    PrecioFinal: parseFloat(maquina.precioFinal) || parseFloat(maquina.precioMaquina) || 0,
-                    CostePorCopiaNegro: parseFloat(maquina.costeNegro) || 0,
-                    CostePorCopiaColor: parseFloat(maquina.costeColor) || 0,
-                    Notas: observaciones
-                };
-
-                console.log('📤 Enviando presupuesto:', presupuestoData);
-                
-                const response = await axios.post(PRESUPUESTOS_API_URL, presupuestoData, {
-                    headers: { 
-                        Authorization: `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    }
-                });
-
-                return response.data;
-            });
-
-            // Esperar a que todos los presupuestos se creen
-            const resultados = await Promise.all(promises);
-            console.log('✅ Todos los presupuestos creados:', resultados);
-
-            // 🚨 GENERAR PDF CON TODAS LAS MÁQUINAS
-            await generarYDescargarPDF();
-            
-            alert(`✅ ${maquinasSeleccionadas.length} presupuesto(s) creado(s) exitosamente y PDF generado`);
-            resetForm();
-            onClose();
-
-        } catch (err) {
-            console.error('❌ Error al crear presupuesto(s):', err);
-            
-            let errorMessage = 'Error al crear el presupuesto';
-            
-            if (err.response) {
-                console.error('📊 Datos de error del servidor:', err.response.data);
-                
-                if (err.response.data && err.response.data.errors) {
-                    const validationErrors = err.response.data.errors;
-                    errorMessage = 'Errores de validación:\n';
-                    Object.keys(validationErrors).forEach(key => {
-                        errorMessage += `\n• ${key}: ${validationErrors[key].join(', ')}`;
-                    });
-                } else if (err.response.data && err.response.data.message) {
-                    errorMessage += `\n${err.response.data.message}`;
-                }
-            }
-            
-            setError(errorMessage);
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    // 🚨 MÉTODO PARA GENERAR PDF
+    // 🚨 MÉTODO PARA GENERAR PDF y DESCARGAR
     const generarYDescargarPDF = async () => {
         try {
             const token = getAuthToken();
             
+            // Mapear los datos de las máquinas para la solicitud del PDF
             const pdfData = {
                 IdCliente: parseInt(currentIdCliente),
-                maquinas: maquinasSeleccionadas.map(maquina => ({
-                    Id: parseInt(maquina.Id),
-                    Nombre: maquina.Nombre,
-                    Modelo: maquina.Modelo,
-                    Velocidad: maquina.Velocidad || '',
-                    Imagen: maquina.Imagen || '',
-                    Tipo: maquina.Tipo || 0,
-                    PrecioMaquina: parseFloat(maquina.precioMaquina) || 0,
-                    Rebaja: parseFloat(maquina.descuento) || 0,
-                    CostePorCopiaNegro: parseFloat(maquina.costeNegro) || 0,
-                    CostePorCopiaColor: parseFloat(maquina.costeColor) || 0
-                })),
-                mesesRenting: maquinasSeleccionadas.some(m => m.renting) ? 12 : null
+                observaciones: observaciones,
+                mesesRenting: mesesRenting ? parseInt(mesesRenting) : null,
+                maquinas: maquinasSeleccionadas.map(maquina => {
+                    const precioMaquinaNum = parseFloat(maquina.precioMaquina) || 0;
+                    const descuentoPorcentaje = parseFloat(maquina.descuento) || 0;
+                    // Calcula el valor absoluto de la rebaja para enviarlo al PDF
+                    const rebajaAbsoluta = precioMaquinaNum * descuentoPorcentaje / 100;
+                    
+                    return ({
+                        Id: parseInt(maquina.Id),
+                        Nombre: maquina.Nombre,
+                        Modelo: maquina.Modelo,
+                        Velocidad: maquina.Velocidad || '',
+                        Imagen: maquina.Imagen || '',
+                        Tipo: maquina.Tipo || 0, 
+                        PrecioMaquina: precioMaquinaNum,
+                        Rebaja: rebajaAbsoluta, // Rebaja como valor absoluto
+                        PrecioFinal: parseFloat(maquina.precioFinal) || 0,
+                        CostePorCopiaNegro: parseFloat(maquina.costePorCopiaNegro) || 0,
+                        CostePorCopiaColor: maquina.costePorCopiaColor ? parseFloat(maquina.costePorCopiaColor) : null
+                    });
+                }),
             };
 
-            console.log('📄 Enviando datos para PDF:', pdfData);
-
             const pdfResponse = await axios.post(
-                `${API_BASE_URL}/presupuestos/generar-pdf`, 
+                `${PRESUPUESTOS_API_URL}/generar-pdf`, 
                 pdfData,
                 {
                     headers: { 
@@ -399,58 +342,90 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
                 }
             );
 
-            // Descargar PDF
+            // Lógica de descarga del PDF
             const blob = new Blob([pdfResponse.data], { type: 'application/pdf' });
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `Presupuesto_${clientName}_${new Date().toISOString().split('T')[0]}.pdf`;
+            
+            const contentDisposition = pdfResponse.headers['content-disposition'];
+            let filename = `Presupuesto_${clientName}_${new Date().toISOString().split('T')[0]}.pdf`;
+            if (contentDisposition) {
+                const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+                if (filenameMatch && filenameMatch.length === 2) {
+                    filename = filenameMatch[1];
+                }
+            }
+            
+            link.setAttribute('download', filename);
             document.body.appendChild(link);
             link.click();
+            link.remove();
             window.URL.revokeObjectURL(url);
-            document.body.removeChild(link);
 
         } catch (pdfError) {
-            console.error('❌ Error al generar PDF:', pdfError);
-            alert('⚠️ Presupuesto(s) creado(s) pero hubo un error al generar el PDF.');
+            console.error('❌ Error al generar PDF:', pdfError.response?.data || pdfError.message);
+            // Mostrar un error al usuario, pero no detener el guardado de la DB
+            throw new Error('⚠️ Presupuesto(s) creado(s) pero hubo un error al generar el PDF.');
         }
     };
 
-    // 🚨 MÉTODO DE TESTING
-    const handleSubmitTest = async (e) => {
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (!validarFormulario()) return;
+
         setSaving(true);
         setError(null);
 
         try {
             const token = getAuthToken();
-            const testData = {
-                IdCliente: parseInt(currentIdCliente),
-                IdMaquina: 1, // Usar un ID fijo para testing
-                PrecioMaquina: 1000.00,
-                Rebaja: 100.00,
-                PrecioFinal: 900.00,
-                CostePorCopiaNegro: 0.0050,
-                CostePorCopiaColor: 0.0150,
-                Notas: "Presupuesto de prueba"
-            };
+            if (!token) throw new Error('No se encontró el token de autenticación');
 
-            console.log('🧪 TEST - Enviando:', testData);
-
-            const response = await axios.post(PRESUPUESTOS_API_URL, testData, {
-                headers: { 
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
+            // 🚨 1. GUARDAR CADA PRESUPUESTO EN LA BASE DE DATOS (una llamada por máquina)
+            const promises = maquinasSeleccionadas.map(async (maquina) => {
+                const precioMaquinaNum = parseFloat(maquina.precioMaquina) || 0;
+                const descuentoPorcentaje = parseFloat(maquina.descuento) || 0;
+                const rebajaAbsoluta = precioMaquinaNum * descuentoPorcentaje / 100;
+                
+                const presupuestoData = {
+                    IdCliente: parseInt(currentIdCliente),
+                    IdMaquina: parseInt(maquina.Id),
+                    PrecioMaquina: precioMaquinaNum,
+                    Rebaja: rebajaAbsoluta, // Rebaja en valor absoluto para la DB
+                    PrecioFinal: parseFloat(maquina.precioFinal) || 0,
+                    CostePorCopiaNegro: parseFloat(maquina.costePorCopiaNegro) || 0,
+                    CostePorCopiaColor: maquina.costePorCopiaColor ? parseFloat(maquina.costePorCopiaColor) : null,
+                    Notas: observaciones,
+                    MesesRenting: mesesRenting ? parseInt(mesesRenting) : null,
+                };
+                
+                await axios.post(PRESUPUESTOS_API_URL, presupuestoData, {
+                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+                });
             });
 
-            console.log('✅ TEST - Éxito:', response.data);
-            alert('✅ Presupuesto de prueba creado exitosamente');
+            await Promise.all(promises);
+            console.log('✅ Todos los presupuestos creados.');
+
+            // 🚨 2. GENERAR PDF CON TODAS LAS MÁQUINAS Y DESCARGAR
+            await generarYDescargarPDF();
+            
+            alert(`✅ ${maquinasSeleccionadas.length} presupuesto(s) creado(s) exitosamente y PDF generado`);
+            resetForm();
             onClose();
 
         } catch (err) {
-            console.error('❌ TEST - Error:', err.response?.data || err.message);
-            setError(`Error TEST: ${JSON.stringify(err.response?.data || err.message, null, 2)}`);
+            console.error('❌ Error al crear presupuesto(s):', err);
+            
+            let errorMessage = err.message || 'Error desconocido al procesar el presupuesto.';
+            if (err.response) {
+                // Priorizar mensajes de error del servidor
+                errorMessage = err.response.data.message || errorMessage;
+            }
+            
+            setError(errorMessage);
         } finally {
             setSaving(false);
         }
@@ -479,17 +454,13 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
                     {error && (
                         <div className="error-message-modal">
                             <p style={{ whiteSpace: 'pre-line' }}>{error}</p>
-                            <div style={{ marginTop: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                                <button onClick={() => setError(null)} className="boton-secundario">
-                                    Continuar Editando
-                                </button>
-                                <button onClick={handleSubmitTest} className="boton-principal" disabled={saving}>
-                                    Probar Datos de Test
-                                </button>
-                            </div>
+                            <button onClick={() => setError(null)} className="boton-secundario" style={{marginTop: '10px'}}>
+                                Continuar Editando
+                            </button>
                         </div>
                     )}
 
+                    {/* Sección Añadir Máquina */}
                     <div className="section-add-machine">
                         <h4>Añadir Máquinas al Presupuesto</h4>
                         <div className="add-machine-controls">
@@ -517,6 +488,7 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
                         </div>
                     </div>
 
+                    {/* Sección Máquinas Seleccionadas */}
                     {maquinasSeleccionadas.length > 0 && (
                         <div className="section-selected-machines">
                             <h4>Máquinas en el Presupuesto ({maquinasSeleccionadas.length})</h4>
@@ -534,10 +506,25 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
                         </div>
                     )}
 
-                    <div className="section-observations">
+                    <div className="section-renting-and-observations">
+                        <div className="form-group" style={{ maxWidth: '200px', marginBottom: '15px' }}>
+                            <label>Meses de Renting</label>
+                            <input
+                                type="number"
+                                min="1"
+                                // 🚨 CORRECCIÓN 6: Usar || '' para evitar undefined/null
+                                value={mesesRenting || ''}
+                                onChange={(e) => setMesesRenting(e.target.value)}
+                                placeholder="Ej: 36 o 60"
+                                disabled={saving}
+                            />
+                            <small>Dejar vacío si no aplica renting.</small>
+                        </div>
+                        
                         <h4>Observaciones del Presupuesto</h4>
                         <textarea
-                            value={observaciones}
+                            // 🚨 CORRECCIÓN 7: Usar || '' para evitar undefined/null
+                            value={observaciones || ''}
                             onChange={(e) => setObservaciones(e.target.value)}
                             placeholder="Añada observaciones adicionales sobre el presupuesto..."
                             disabled={saving}

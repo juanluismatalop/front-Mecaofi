@@ -5,9 +5,11 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 function App() {
   return (
-    <Router>
+    // 🚨 CORRECCIÓN CLAVE: Añadir basename="/LibroVisitas"
+    // Esto resuelve el error de URL que te mostraba el servidor.
+    <Router basename="/LibroVisitas">
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<Login />} />
         <Route path="/home" element={<HomePage />} />
         <Route path="*" element={<Login />} />
       </Routes>

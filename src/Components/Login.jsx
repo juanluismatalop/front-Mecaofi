@@ -1,10 +1,11 @@
 import { useState } from "react";
 import './Login.css';
 import { useNavigate } from "react-router-dom"; 
+// 🚨 CORRECCIÓN: Importar la imagen de forma modular
+import logo from '../assets/Logo-Mecaofi.jpg'; 
 
 // ==========================================================
 // ** CONFIGURACIÓN **
-// Asegúrate de que esta URL coincida con la de tu backend (Laravel)
 // ==========================================================
 const API_URL = 'http://localhost:8000';
 
@@ -18,13 +19,9 @@ export default function Login(){
         setError(''); 
         
         try {
-            // ==========================================================
-            // PASO 1: OBTENER LA COOKIE CSRF DE SANCTUM
-            // Esto es crucial para solucionar el error 419 (CSRF Mismatch).
-            // ==========================================================
+            // ... (Lógica de obtención de CSRF y Login sin cambios)
             const csrfResponse = await fetch(`${API_URL}/sanctum/csrf-cookie`, {
                 method: 'GET',
-                // CRUCIAL: Incluye las cookies en la solicitud y permite recibirlas.
                 credentials: 'include', 
             });
 
@@ -32,10 +29,6 @@ export default function Login(){
                 throw new Error("Fallo al obtener la cookie CSRF. Revisa el CORS en el backend.");
             }
 
-            // ==========================================================
-            // PASO 2: REALIZAR LA SOLICITUD DE LOGIN
-            // El navegador ahora enviará la cookie CSRF automáticamente.
-            // ==========================================================
             const loginResponse = await fetch(`${API_URL}/api/login`, {
                 method: 'POST',
                 headers: {
@@ -45,15 +38,10 @@ export default function Login(){
                     Comercial: comercial, 
                     Pass: contrasenna,    
                 }),
-                // CRUCIAL: Incluye las cookies de sesión/CSRF en el login.
                 credentials: 'include', 
             });
             
-            // --- Manejo de la Respuesta del Servidor ---
-            
             if (!loginResponse.ok) {
-                
-                // Si el servidor devuelve el error 419
                 if (loginResponse.status === 419) {
                     throw new Error("ERROR 419: Sesión expirada o token CSRF inválido. Revisa tu archivo cors.php.");
                 }
@@ -61,33 +49,29 @@ export default function Login(){
                 let errorData;
                 const contentType = loginResponse.headers.get("content-type");
 
-                // Intentar parsear JSON solo si el Content-Type lo indica
                 if (contentType && contentType.includes("application/json")) {
                     errorData = await loginResponse.json();
                 } else {
-                    // Si el servidor devuelve HTML (ej. un 500, o un error que no es JSON)
                     const errorText = await loginResponse.text();
                     console.error("Respuesta no-JSON del servidor:", errorText);
                     throw new Error(`Error ${loginResponse.status}. El servidor no devolvió un JSON válido.`);
                 }
 
-                // Si el error es un JSON válido, mostramos el mensaje del servidor
                 const errorMessage = errorData.message || `Error del servidor (Código ${loginResponse.status}).`;
                 throw new Error(errorMessage);
             }
 
-            // --- Si la solicitud es exitosa (200 OK) ---
             const data = await loginResponse.json(); 
 
             localStorage.setItem('token', data.token);
             localStorage.setItem('comercialId', data.comercialId);
             localStorage.setItem('comercialName', comercial); 
             
+            // Asumiendo que /Home es la ruta correcta definida en App.js
             navigate("/Home"); 
 
         } catch (err) {
             console.error("Error al iniciar sesión:", err.message);
-            // Mostrar el mensaje de error capturado en la interfaz
             setError(err.message || "No se pudo conectar con el servidor. ¿Está el backend corriendo?");
             alert(err.message || "No se pudo conectar con el servidor.");
         }
@@ -96,7 +80,8 @@ export default function Login(){
     return(
         <div>
             <div className="container">
-                <img src="src\assets\Logo-Mecaofi.jpg" className="imagen" alt="Logo MecaOfi"/>
+                {/* 🚨 CORRECCIÓN: Usar la variable 'logo' importada */}
+                <img src={logo} className="imagen" alt="Logo MecaOfi"/>
                 <div>
                     <h2>Usuario</h2>
                     <input 
