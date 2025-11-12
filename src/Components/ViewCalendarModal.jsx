@@ -175,10 +175,7 @@ export default function ViewCalendarModal({
             </button>
           </div>
           <button className="gc-close" onClick={onClose} title="Cerrar">&times;</button>
-        </div>
-
-        {/* FILTRO COMERCIAL (solo para Admin) */}
-        {isAdmin && (
+          {isAdmin && (
           <div className="gc-filter-bar">
             <label htmlFor="comercialFilter">Filtrar por Comercial:</label>
             <select
@@ -197,6 +194,8 @@ export default function ViewCalendarModal({
             </select>
           </div>
         )}
+        </div>
+        
 
         {/* Contenido del Calendario */}
         <div className="gc-calendar">

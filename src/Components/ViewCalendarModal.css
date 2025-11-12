@@ -32,11 +32,36 @@
   margin-bottom: 12px;
 }
 
+/* --- Estilos para la navegación del mes (mes y flechas) --- */
+.gc-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 15px; 
+}
+
+.gc-nav-btn {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem; 
+  color: #5f6368;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 50%;
+  transition: background-color 0.2s, color 0.2s;
+  line-height: 1; 
+}
+
+.gc-nav-btn:hover {
+  background-color: #f1f3f4;
+  color: #1a73e8;
+}
+
 .gc-header h2 {
   text-transform: capitalize;
   font-weight: 500;
   font-size: 1.5rem;
   color: #202124;
+  margin: 0; 
 }
 
 .gc-close {
@@ -51,12 +76,12 @@
   color: #1a73e8;
 }
 
-/* --- ESTILOS PARA EL FILTRO DE COMERCIAL (Soluciona "no se ve el filtro") --- */
+/* --- ESTILOS PARA EL FILTRO DE COMERCIAL --- */
 .gc-filter-bar {
   display: flex;
   align-items: center;
   gap: 15px;
-  padding: 10px 0 15px 0; /* Espaciado antes del calendario */
+  padding: 10px 0 15px 0; 
   border-bottom: 1px solid #dadce0;
   margin-bottom: 15px; 
 }
@@ -72,7 +97,7 @@
   border: 1px solid #dadce0;
   border-radius: 8px;
   font-size: 0.9rem;
-  color: #202124; /* Color de texto oscuro para el select */
+  color: #202124; 
   background-color: #f1f3f4;
   cursor: pointer;
   outline: none;
@@ -85,7 +110,6 @@
   border-color: #1a73e8;
   box-shadow: 0 0 0 1px #1a73e8;
 }
-/* --- FIN ESTILOS FILTRO --- */
 
 
 /* Calendario */
@@ -116,7 +140,8 @@
 .gc-day {
   border-right: 1px solid #dadce0;
   border-bottom: 1px solid #dadce0;
-  min-height: 110px;
+  /* MODIFICACIÓN: Altura mínima reducida */
+  min-height: 80px;
   padding: 6px;
   position: relative;
   transition: background-color 0.2s;
@@ -148,10 +173,10 @@
   border-radius: 4px;
 }
 
-/* Evento (Estilo por defecto, fondo azul, texto blanco) */
+/* Evento */
 .gc-event {
   background-color: #1a73e8;
-  color: white; /* Color blanco por defecto */
+  color: white; 
   border-radius: 8px;
   padding: 2px 6px;
   font-size: 0.75rem;
@@ -165,16 +190,16 @@
   background-color: #155fc9;
 }
 
-/* 🚨 CORRECCIÓN CLAVE: Evento clicable (fondo claro, texto oscuro) 🚨 */
+/* Evento clicable (fondo claro, texto oscuro) */
 .gc-event.clickable-event {
     cursor: pointer;
     background-color: #f0f0f0; 
-    color: #202124; /* 👈 AÑADIDO: Fuerza el color de texto a oscuro para ser visible */
+    color: #202124; 
     border-radius: 3px;
     padding: 2px 4px;
     margin-top: 2px;
     transition: background-color 0.15s ease;
-    border: 1px solid #dadce0; /* Opcional: añade un borde sutil */
+    border: 1px solid #dadce0; 
 }
 
 .gc-event.clickable-event:hover {
