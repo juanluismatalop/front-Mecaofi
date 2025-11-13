@@ -108,7 +108,7 @@ const AddMachineModal = ({ isOpen, onClose, fetchMachines, machineToEdit, curren
 
       fetchMachines(); 
       setTimeout(() => {
-        onClose(); 
+        onClose(); // 👈 Función de cierre
       }, 1500);
     } catch (err) {
       console.error("Error al guardar la máquina:", err);
@@ -133,6 +133,23 @@ const AddMachineModal = ({ isOpen, onClose, fetchMachines, machineToEdit, curren
 
         <div className="modal-body">
             <h1>Añadir Maquina</h1>
+            <button
+                    type="button"
+                    onClick={onClose} // 👈 Función de cierre
+                    className="boton2"
+                    disabled={submitting}
+                >
+                    Cancelar
+                </button>
+                <button
+                    type="submit"
+                    className="submit-button"
+                    disabled={submitting}
+                >
+                    {submitting 
+                      ? (machineToEdit ? 'Guardando...' : 'Añadiendo...') 
+                      : (machineToEdit ? 'Guardar Cambios' : 'Añadir Máquina')}
+                </button>
             <form onSubmit={handleSubmit} className="form-container">
             
             {/* Fila 1: Nombre y Marca */}
@@ -192,27 +209,6 @@ const AddMachineModal = ({ isOpen, onClose, fetchMachines, machineToEdit, curren
                     <label htmlFor="Imagen">URL Imagen (Opcional)</label>
                     <input type="text" id="Imagen" name="Imagen" value={formData.Imagen} onChange={handleChange} />
                 </div>
-            </div>
-
-            {/* Botones de acción */}
-            <div className="button-group-modal">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="boton2"
-                    disabled={submitting}
-                >
-                    Cancelar
-                </button>
-                <button
-                    type="submit"
-                    className="submit-button"
-                    disabled={submitting}
-                >
-                    {submitting 
-                      ? (machineToEdit ? 'Guardando...' : 'Añadiendo...') 
-                      : (machineToEdit ? 'Guardar Cambios' : 'Añadir Máquina')}
-                </button>
             </div>
           </form>
         </div>
