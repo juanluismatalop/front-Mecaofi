@@ -42,7 +42,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
     const [visitaSaveError, setVisitaSaveError] = useState(null);
     const [fileAttachment, setFileAttachment] = useState({}); 
 
-    // 🚨 Nuevo estado para el modal de presupuesto
+    // Nuevo estado para el modal de presupuesto
     const [showBudgetModal, setShowBudgetModal] = useState(false);
     const [visitaToBudget, setVisitaToBudget] = useState(null);
 
@@ -52,7 +52,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
     const canEditClient = isAdmin || editedClient.IdComercial === loggedInUserId;
     const canDeleteClient = isAdmin;
 
-    // 🚨 Nuevas funciones para manejar el modal de presupuesto
+    // Nuevas funciones para manejar el modal de presupuesto
     const handleOpenBudgetModal = (visita = null) => {
         if (isEditing || isVisitaEditing) return;
         setVisitaToBudget(visita);
@@ -73,11 +73,11 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
             setEditingVisitaId(null);
             setEditedVisita({});
             setFileAttachment({});
-            handleCloseBudgetModal(); // 🚨 Cerrar el modal de presupuesto al cambiar de cliente
+            handleCloseBudgetModal(); 
         }
     }, [cliente]);
 
-    // 🚨 2. useEffect para Cargar Comerciales (Solo Admin)
+    // 2. useEffect para Cargar Comerciales (Solo Admin)
     useEffect(() => {
         if (!show) return;
 
@@ -172,7 +172,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         setSaveError(null);
         setVisitaSaveError(null);
         setFileAttachment({}); 
-        handleCloseBudgetModal(); // 🚨 Asegurar el cierre del modal de presupuesto
+        handleCloseBudgetModal(); 
     };
     
     const handleClientChange = (e) => {
@@ -522,7 +522,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
     };
 
     return (
-        <> {/* 🚨 Fragmento para incluir el modal de presupuesto */}
+        <> 
             <div className="modal-backdrop-view" onClick={handleCancelEdit}>
                 <div className="modal-content-view" onClick={e => e.stopPropagation()}> 
                     <div className="modal-header-view">
@@ -649,7 +649,6 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                                     <th className="observaciones-col">Observaciones</th>
                                     <th>Comercial</th>
                                     <th>Anexo</th>
-                                    {/* 🚨 CLASE AÑADIDA para el espacio extra del botón de Presupuesto */}
                                     <th className="actions-col-header wide-actions">Acciones</th> 
                                 </tr>
                             </thead>
@@ -709,7 +708,10 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                                                 {isEditingCurrent ? (
                                                     <textarea name="Observaciones" value={editedVisita.Observaciones || ''} onChange={handleVisitaChange} className="editable-textarea-table" />
                                                 ) : (
-                                                    visita.Observaciones
+                                                    // ✅ APLICACIÓN DEL SCROLL
+                                                    <div className="scroll-text-area-view" title={visita.Observaciones}>
+                                                        {visita.Observaciones}
+                                                    </div>
                                                 )}
                                             </td>
                                             <td>{visita.comercial?.Comercial || 'N/A'}</td>
@@ -747,7 +749,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
                                                                     ✏️
                                                                 </button>
 
-                                                                {/* 🚨 Botón para Generar Presupuesto (FUNCIONALIDAD SOLICITADA) */}
+                                                                {/* Botón para Generar Presupuesto */}
                                                                 <button 
                                                                     onClick={() => handleOpenBudgetModal(visita)} 
                                                                     className="icon-button principal-icon budget-icon" 
@@ -781,7 +783,7 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
 
                 </div>
                 
-                {/* 🚨 CORRECCIÓN: Cambiar 'client' por 'cliente' y usar handleCloseBudgetModal */}
+                {/* Modal de Presupuesto */}
                 {showBudgetModal && cliente && (
                     <GenerateBudgetModal
                         isOpen={showBudgetModal} 

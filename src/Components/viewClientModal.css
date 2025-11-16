@@ -171,14 +171,37 @@
 
 .visitas-table .observaciones-col {
     max-width: 300px;
+    vertical-align: top; /* CLAVE para que el contenido se alinee arriba */
 }
-.visitas-table .observaciones-col > span {
-     /* Esto es para el modo no edición */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+
+/* ✅ ESTILO PARA EL SCROLL EN OBSERVACIONES (MODO NO EDICIÓN) */
+.scroll-text-area-view {
+    max-height: 100px;
+    font: 110%;/* Altura máxima antes de que aparezca el scroll */
+    overflow-y: auto; /* Habilita el scroll vertical */
+    
+    /* Propiedades adicionales para mejorar la visualización del texto */
+    white-space: pre-wrap; /* Permite el wrapping de líneas y respeta los saltos de línea */
+    word-break: break-word; /* Rompe palabras largas para evitar desbordamiento */
     display: block;
+    padding: 5px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    cursor: default;
+    background-color: #fcfcfc;
 }
+
+
+/* El siguiente estilo es el que tenía el texto antes, ahora lo aplica el div.scroll-text-area-view */
+.visitas-table .observaciones-col > span {
+     white-space: nowrap;
+     overflow: hidden;
+     text-overflow: ellipsis;
+     display: block;
+}
+
 
 .visitas-table .no-data {
     text-align: center;
@@ -212,7 +235,6 @@
     width: 0.1px;
     height: 0.1px;
     opacity: 0;
-    overflow: hidden;
     position: absolute;
     z-index: -1;
 }

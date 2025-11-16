@@ -6,6 +6,7 @@ const CLIENTES_API_URL = 'http://localhost:8000/api/clientes';
 const COMERCIALES_API_URL = 'http://localhost:8000/api/comerciales'; 
 
 const isValidEmail = (email) => {
+    // Si el email está vacío, se considera válido (porque es opcional)
     if (!email) return true; 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i; 
     return emailRegex.test(email);
@@ -104,8 +105,6 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
         setFormData(prev => ({ ...prev, [name]: finalValue }));
     };
 
-    // ... (código anterior sin cambios)
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
@@ -129,6 +128,7 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
              return;
         }
 
+        // El Correo Principal ya no es requerido. Solo validamos si tiene un valor no vacío.
         if (formData.Correo && !isValidEmail(formData.Correo)) {
             setError("El Correo Principal no tiene un formato válido.");
             setSubmitting(false);
@@ -145,7 +145,8 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
             PersonaContacto: formData.PersonaContacto,
             Telefono: formData.Telefono, 
             Telefono2: formData.Telefono2, 
-            Correo: formData.Correo, 
+            // 👉 CAMBIO 1: Si 'Correo' está vacío, usa 'norelleno@gmail.com'
+            Correo: formData.Correo || 'norelleno@gmail.com', 
             Correo2: formData.Correo2, 
             Direccion: formData.Direccion,
             Ciudad: formData.Ciudad,
@@ -168,8 +169,6 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                 throw new Error(errorData.message || "Fallo al crear el cliente. Verifique los datos.");
             }
 
-            // El cliente se ha creado con éxito.
-            
             if (onClientAdded) {
                 onClientAdded(); 
             }
@@ -287,9 +286,10 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                         </div>
 
                         <div className="form-group-row">
-                            <div className="form-group required">
+                            {/* 👉 CAMBIO 2: Eliminar la clase 'required', cambiar la etiqueta y eliminar el atributo 'required' */}
+                            <div className="form-group"> 
                                 <label htmlFor="Correo">Correo Principal</label>
-                                <input type="email" id="Correo" name="Correo" value={formData.Correo} onChange={handleChange} required />
+                                <input type="email" id="Correo" name="Correo" value={formData.Correo} onChange={handleChange} />
                             </div>
                             <div className="form-group">
                                 <label htmlFor="Correo2">Correo Secundario</label>

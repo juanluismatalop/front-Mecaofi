@@ -76,7 +76,8 @@ export default function ViewCalendarModal({
         return [];
       }
       
-      let result = visitas;
+      // Mantenemos SOLO las visitas que tienen ProximaFecha definida para el calendario
+      let result = visitas.filter(v => v.ProximaFecha);
       const filterId = parseInt(selectedComercialId, 10);
 
       // 1. Filtrado para usuario no-admin
@@ -103,13 +104,15 @@ export default function ViewCalendarModal({
     }
   }, [visitas, selectedComercialId, isAdmin, userId]);
 
-  // --- Agrupar visitas por fecha ---
+  // --- Agrupar visitas por Próxima Fecha ---
   const groupedVisitas = useMemo(() => {
     const groups = {};
     try {
       filteredVisitas.forEach(v => {
-        if (v && v.Fecha) {
-          const dateKey = v.Fecha.split('T')[0]; 
+        // CAMBIO: Usamos ProximaFecha
+        if (v && v.ProximaFecha) {
+          // Usamos la cadena literal YYYY-MM-DD (la clave)
+          const dateKey = v.ProximaFecha.split('T')[0]; 
           if (dateKey) {
             if (!groups[dateKey]) {
               groups[dateKey] = [];
@@ -127,7 +130,16 @@ export default function ViewCalendarModal({
   const getDailyVisitas = (date) => {
     if (!date) return [];
     try {
-      const dateKey = date.toISOString().split('T')[0];
+      // 🚀 CORRECCIÓN FINAL: Usamos métodos LOCALES (getFullYear, getMonth, getDate)
+      // para crear la clave. Esto coincide con la fecha que se muestra en la celda
+      // del calendario (que es local) y se alinea con la clave YYYY-MM-DD
+      // extraída de la cadena del servidor.
+      const year = date.getFullYear();
+      // getMonth() es base 0, por eso se suma 1
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`; 
+      
       return groupedVisitas[dateKey] || []; 
     } catch (error) {
       return [];
@@ -146,10 +158,11 @@ export default function ViewCalendarModal({
   };
 
   const handleVisitClick = (visit) => {
-    if (visit && visit.clientData) {
-      onViewClient(visit.clientData);
+    if (visit && visit.cliente) {
+      // Las visitas de Laravel vienen con `visita.cliente` anidado.
+      onViewClient(visit.cliente); 
     } else {
-      console.warn("⚠️ No hay datos del cliente para esta visita:", visit);
+      console.warn("⚠️ No hay datos del cliente para esta visita o la estructura es incorrecta:", visit);
     }
   };
 
@@ -157,6 +170,7 @@ export default function ViewCalendarModal({
 
   const calendarDays = generateCalendarDays(currentDate);
   const monthTitle = `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+  // Usa la fecha de hoy en formato ISO, sin hora (para la clase 'today')
   const today = new Date().toISOString().split('T')[0];
 
   return (
@@ -220,11 +234,11 @@ export default function ViewCalendarModal({
                         {dailyVisitas.map((visit, i) => (
                           <div 
                             key={i}
-                            className={`gc-event ${visit.clientData ? 'clickable-event' : ''}`}
+                            className={`gc-event ${visit.cliente ? 'clickable-event' : ''}`} 
                             onClick={() => handleVisitClick(visit)}
-                            title={`Comercial: ${visit.NombreComercial || 'N/A'} | Cliente: ${visit.NombreCliente || 'N/A'}`}
+                            title={`Próx. Visita | Comercial: ${visit.comercial?.Nombre || 'N/A'} | Cliente: ${visit.cliente?.Nombre || 'N/A'}`}
                           >
-                            {visit.Hora ? `${visit.Hora} — ` : ''}{visit.NombreCliente || 'Cliente Desconocido'}
+                            {visit.Hora ? `${visit.Hora} — ` : ''}{visit.cliente?.Nombre || 'Cliente Desconocido'} 
                           </div>
                         ))}
                       </>
@@ -238,23 +252,24 @@ export default function ViewCalendarModal({
 
         {/* Resumen de Visitas */}
         <div className="gc-visits-summary">
-          <h4>Visitas del mes ({filteredVisitas.length})</h4>
+          <h4>Próximas Visitas del mes ({filteredVisitas.length})</h4> 
           <div className="gc-visits-list">
             {filteredVisitas.length === 0 ? (
-              <p>No hay visitas programadas para este filtro.</p>
+              <p>No hay próximas visitas programadas para este filtro.</p>
             ) : (
               <ul>
                 {filteredVisitas.map((visit, i) => (
                   <li 
                     key={i}
                     onClick={() => handleVisitClick(visit)}
-                    style={{ cursor: visit.clientData ? 'pointer' : 'default' }}
-                    title={visit.clientData ? `Ver cliente: ${visit.NombreCliente}` : 'Cliente no disponible'}
+                    style={{ cursor: visit.cliente ? 'pointer' : 'default' }} 
+                    title={visit.cliente ? `Ver cliente: ${visit.cliente.Nombre}` : 'Cliente no disponible'}
                   >
                     <strong>
-                      {visit.Fecha.split('T')[0]} {visit.Hora || ''}
+                      {/* Mostramos ProximaFecha */}
+                      {visit.ProximaFecha.split('T')[0]} {visit.Hora || ''} 
                     </strong>{' '}
-                    — {visit.NombreCliente || 'Cliente Desconocido'}
+                    — {visit.cliente?.Nombre || 'Cliente Desconocido'}
                   </li>
                 ))}
               </ul>
