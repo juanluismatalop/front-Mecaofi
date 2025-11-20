@@ -3,7 +3,7 @@ import './viewClientModal.css';
 import GenerateBudgetModal from './GenerateBudgetModal';
 
 // 1. Definición de Constantes de API (CRÍTICO: Asegura que el puerto 8000/api sea correcto)
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'https://www.mecaofi.com/LibroVisitas/back/public/api';
 const CLIENTES_API_BASE_URL = `${API_BASE_URL}/clientes`; 
 const VISITAS_API_BASE_URL_CLIENTE = `${API_BASE_URL}/visitas/cliente`; 
 const VISITAS_API_BASE_URL = `${API_BASE_URL}/visitas`; 

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import './addClientModal.css';
 
 const ADMIN_ID = 10;
-const REGISTER_API_URL = 'http://localhost:8000/api/comerciales/register';
+const REGISTER_API_URL = 'https://www.mecaofi.com/LibroVisitas/back/public/api/comerciales/register';
 
 export default function AddComercialModal ({ show, onClose, onComercialAdded }){
     const loggedInComercialId = parseInt(localStorage.getItem('comercialId'), 10);

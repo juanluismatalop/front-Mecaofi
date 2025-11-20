@@ -226,21 +226,54 @@ export default function HomePage() {
         }
     }, [authChecked, userId]);
 
-    // --- 🚨 useMemo CORREGIDO: ENRIQUECIMIENTO DE CLIENTES 🚨 ---
+    // --- 🚨 useMemo MEJORADO: ENRIQUECIMIENTO DE CLIENTES CON MANEJO DE NULL ---
     const clientesEnriquecidos = useMemo(() => {
-        if (comerciales.length === 0) return clientes;
+        if (!clientes || !Array.isArray(clientes)) {
+            console.warn("⚠️ clientes no es un array válido:", clientes);
+            return [];
+        }
+        
+        if (!comerciales || !Array.isArray(comerciales)) {
+            console.warn("⚠️ comerciales no es un array válido, usando clientes sin enriquecer");
+            return clientes;
+        }
+
+        console.log("🔄 Enriqueciendo clientes:", clientes.length, "clientes con", comerciales.length, "comerciales");
 
         const comercialesMap = new Map(comerciales.map(c => [c.Id, c]));
 
-        return clientes.map(c => {
+        const clientesEnriquecidos = clientes.map(c => {
+            if (!c) {
+                console.warn("⚠️ Cliente nulo encontrado");
+                return null;
+            }
+
             const comercial = comercialesMap.get(c.IdComercial); 
 
-            return {
+            // 🚨 CORRECCIÓN: Manejar todos los campos que podrían ser NULL
+            const clienteEnriquecido = {
                 ...c,
-                NombreComercial: comercial ? comercial.Nombre : 'Comercial Eliminado', 
+                NombreComercial: comercial ? comercial.Nombre : 'Comercial Eliminado',
+                // 🚨 Asegurar valores por defecto para campos NULL
+                Nombre: c.Nombre || 'Sin nombre',
+                PersonaContacto: c.PersonaContacto || 'No especificado',
+                Telefono: c.Telefono || 'No especificado',
+                Telefono2: c.Telefono2 || '',
+                Correo: c.Correo || 'No especificado',
+                Correo2: c.Correo2 || '',
+                Direccion: c.Direccion || 'No especificada',
+                Ciudad: c.Ciudad || 'No especificada',
+                Provincia: c.Provincia || 'No especificada'
             };
-        });
-    }, [clientes, comerciales]); 
+
+            return clienteEnriquecido;
+        }).filter(Boolean); // Filtrar posibles valores null
+
+        console.log("✅ Clientes enriquecidos:", clientesEnriquecidos.length);
+        
+        return clientesEnriquecidos;
+
+    }, [clientes, comerciales]);
 
     // --- EFECTO ENRIQUECIMIENTO DE VISITAS (CORREGIDO) ---
     useEffect(() => {
@@ -272,49 +305,112 @@ export default function HomePage() {
         }
     }, [clientes, visitas, comerciales]); 
 
-    // --- LÓGICA DE FILTRADO DE CLIENTES ---
+    // --- 🚨 LÓGICA DE FILTRADO DE CLIENTES CORREGIDA ---
     const clientesFiltrados = useMemo(() => {
+        console.log("🔍 Iniciando filtrado de clientes...");
+        
         const lowerSearchTerm = searchTerm.toLowerCase().trim();
         const lowerSearchCity = searchCity.toLowerCase().trim();
         
         let clientesVisibles = clientesEnriquecidos;
         const isAdmin = userId === ADMIN_ID;
 
+        console.log(`👥 Clientes antes de filtrar: ${clientesVisibles.length}`);
+        console.log(`🔎 Término de búsqueda: "${searchTerm}", Ciudad: "${searchCity}"`);
+
         if (isAdmin && selectedComercialId !== 'all') {
             const filterId = parseInt(selectedComercialId, 10);
             clientesVisibles = clientesVisibles.filter(cliente => cliente.IdComercial === filterId);
+            console.log(`📊 Filtrado por comercial ${filterId}: ${clientesVisibles.length} clientes`);
         }
         
         if (userId !== null && userId !== ADMIN_ID) {
             clientesVisibles = clientesVisibles.filter(cliente => cliente.IdComercial === userId);
+            console.log(`📊 Filtrado por usuario ${userId}: ${clientesVisibles.length} clientes`);
         }
         
-        return clientesVisibles.filter(cliente => {
-            const comercialName = cliente.NombreComercial || ''; 
+        const clientesFiltrados = clientesVisibles.filter(cliente => {
+            // 🚨 CORRECCIÓN: Manejar valores null/undefined correctamente
+            const nombre = cliente.Nombre || '';
+            const personaContacto = cliente.PersonaContacto || '';
+            const comercialName = cliente.NombreComercial || '';
+            const ciudad = cliente.Ciudad || '';
 
             const matchesSearchTerm = 
-                (cliente.Nombre && cliente.Nombre.toLowerCase().includes(lowerSearchTerm)) ||
-                (cliente.PersonaContacto && cliente.PersonaContacto.toLowerCase().includes(lowerSearchTerm)) ||
-                (comercialName.toLowerCase().includes(lowerSearchTerm)); 
+                nombre.toLowerCase().includes(lowerSearchTerm) ||
+                personaContacto.toLowerCase().includes(lowerSearchTerm) ||
+                comercialName.toLowerCase().includes(lowerSearchTerm);
 
-            const matchesCity = cliente.Ciudad && cliente.Ciudad.toLowerCase().includes(lowerSearchCity);
+            // 🚨 CORRECCIÓN: Si no hay término de búsqueda de ciudad, mostrar todos
+            const matchesCity = lowerSearchCity === '' || 
+                               ciudad.toLowerCase().includes(lowerSearchCity);
             
             return matchesSearchTerm && matchesCity;
         });
 
-    }, [clientesEnriquecidos, searchTerm, searchCity, userId, selectedComercialId]); 
+        console.log(`✅ Clientes después de filtrar: ${clientesFiltrados.length}`);
+        
+        // 🚨 DEBUG: Mostrar qué clientes fueron filtrados
+        if (clientesFiltrados.length === 0 && clientesVisibles.length > 0) {
+            console.log("❌ Todos los clientes fueron filtrados. Clientes disponibles:");
+            clientesVisibles.forEach((cliente, index) => {
+                console.log(`   ${index + 1}. ${cliente.Nombre} | Ciudad: "${cliente.Ciudad}" | Comercial: "${cliente.NombreComercial}"`);
+            });
+        }
+        
+        return clientesFiltrados;
+
+    }, [clientesEnriquecidos, searchTerm, searchCity, userId, selectedComercialId]);
     
-    // --- HANDLERS DE MODALES Y ACCIONES ---
+    // --- 🚨 HANDLER CORREGIDO: handleClientAdded ---
     const handleClientAdded = (newClient) => {
+        // 🚨 VERIFICACIÓN DE SEGURIDAD: Asegurarse de que newClient existe
+        if (!newClient) {
+            console.error("Error: newClient es undefined en handleClientAdded");
+            setShowModal(false);
+            return;
+        }
+
+        console.log("🔄 Cliente recibido para agregar:", newClient);
+
+        // 🚨 CORRECCIÓN: Buscar el comercial asignado
         const comercialAsignado = comerciales.find(c => c.Id === newClient.IdComercial);
+        
+        // 🚨 CORRECCIÓN: Crear el cliente enriquecido con manejo de NULL
         const enrichedNewClient = {
             ...newClient,
-            NombreComercial: comercialAsignado ? comercialAsignado.Nombre : 'Comercial Eliminado'
+            NombreComercial: comercialAsignado ? comercialAsignado.Nombre : 'Comercial Eliminado',
+            // 🚨 Asegurar que todos los campos tengan valores por defecto si son NULL
+            Nombre: newClient.Nombre || 'Sin nombre',
+            PersonaContacto: newClient.PersonaContacto || 'No especificado',
+            Telefono: newClient.Telefono || 'No especificado',
+            Telefono2: newClient.Telefono2 || '',
+            Correo: newClient.Correo || 'No especificado',
+            Correo2: newClient.Correo2 || '',
+            Direccion: newClient.Direccion || 'No especificada',
+            Ciudad: newClient.Ciudad || 'No especificada',
+            Provincia: newClient.Provincia || 'No especificada'
         };
 
-        if (enrichedNewClient) {
-            setClientes(prevClientes => [enrichedNewClient, ...prevClientes]); 
-        }
+        console.log("✅ Cliente enriquecido para agregar:", enrichedNewClient);
+
+        // 🚨 ACTUALIZACIÓN DEL ESTADO CON VERIFICACIÓN
+        setClientes(prevClientes => {
+            // Verificar si el cliente ya existe para evitar duplicados
+            const clientExists = prevClientes.some(c => c.Id === enrichedNewClient.Id);
+            if (clientExists) {
+                // Si existe, actualizarlo
+                console.log("🔄 Actualizando cliente existente");
+                return prevClientes.map(c => 
+                    c.Id === enrichedNewClient.Id ? enrichedNewClient : c
+                );
+            } else {
+                // Si no existe, añadirlo al principio
+                console.log("➕ Añadiendo nuevo cliente a la lista");
+                return [enrichedNewClient, ...prevClientes];
+            }
+        });
+        
         setShowModal(false);
     };
 
@@ -334,7 +430,17 @@ export default function HomePage() {
         const comercialAsignado = comerciales.find(c => c.Id === updatedClient.IdComercial);
         const enrichedUpdatedClient = {
             ...updatedClient,
-            NombreComercial: comercialAsignado ? comercialAsignado.Nombre : 'Comercial Eliminado'
+            NombreComercial: comercialAsignado ? comercialAsignado.Nombre : 'Comercial Eliminado',
+            // 🚨 Asegurar valores por defecto para campos actualizados
+            Nombre: updatedClient.Nombre || 'Sin nombre',
+            PersonaContacto: updatedClient.PersonaContacto || 'No especificado',
+            Telefono: updatedClient.Telefono || 'No especificado',
+            Telefono2: updatedClient.Telefono2 || '',
+            Correo: updatedClient.Correo || 'No especificado',
+            Correo2: updatedClient.Correo2 || '',
+            Direccion: updatedClient.Direccion || 'No especificada',
+            Ciudad: updatedClient.Ciudad || 'No especificada',
+            Provincia: updatedClient.Provincia || 'No especificada'
         };
 
         setClientes(prevClientes => 
@@ -551,11 +657,11 @@ export default function HomePage() {
                                 style={{ cursor: 'pointer' }} 
                             >
                                 <td>{cliente.Nombre}</td>
-                                <td>{cliente.PersonaContacto || 'N/A'}</td>
+                                <td>{cliente.PersonaContacto}</td>
                                 <td>{cliente.Telefono}</td>
                                 <td>{cliente.Ciudad}</td>
                                 <td>{cliente.Correo}</td>
-                                <td>{cliente.NombreComercial || 'Sin Asignar'}</td> 
+                                <td>{cliente.NombreComercial}</td> 
                                 <td style={{ textAlign: 'center' }}>
                                     {isAdmin && (
                                         <button 

@@ -10,6 +10,15 @@ export default defineConfig({
 
   server: {
     host: true, 
-    port: 5173, 
+    port: 5173,
+    // AÑADIDO: Configuración de Proxy para redirigir /api/ a tu Backend
+    proxy: {
+      '/api': {
+        // Asume que tu backend (PHP) corre en el puerto 8000
+        target: 'http://localhost:8000', 
+        changeOrigin: true, // Importante para peticiones CORS
+        rewrite: (path) => path.replace(/^\/api/, '/api'), // Mantiene la ruta /api
+      },
+    },
   }
 });

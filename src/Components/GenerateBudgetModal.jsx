@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import './GenerateBudgetModal.css'; // Asegúrate de tener tu archivo CSS
 
-const API_BASE_URL = 'http://localhost:8000/api';
+const API_BASE_URL = 'https://www.mecaofi.com/LibroVisitas/back/public/api';
 const MAQUINAS_API_BASE_URL = `${API_BASE_URL}/maquinas`;
 const PRESUPUESTOS_API_URL = `${API_BASE_URL}/presupuestos`;
 
@@ -547,13 +547,12 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
                                     }}
                                     disabled={saving}
                                 >
-                                    <option value="AlPago">Al Pago (Sin Renting)</option>
-                                    <option value="Meses">Renting (Meses fijos)</option>
-                                    <option value="30/60/90">Renting (30/60/90)</option>
+                                    <option value="AlPago">Al Contado</option>
+                                    <option value="Meses">Renting</option>
+                                    <option value="30/60/90">30/60/90</option>
                                 </select>
                             </div>
                             
-                            {/* 🚨 INPUT MESES (Solo si es 'Meses') */}
                             {tipoRenting === 'Meses' && (
                                 <div className="form-group" style={{ maxWidth: '150px', marginBottom: '15px' }}>
                                     <label htmlFor="mesesRenting">Meses de Renting</label>
@@ -571,9 +570,9 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
                             )}
 
                             {/* 🚨 INPUT IMPUESTO (Si no es 'Al Pago') */}
-                            {(tipoRenting !== 'AlPago') && (
+                            {(tipoRenting == 'Meses') && (
                                 <div className="form-group" style={{ maxWidth: '150px', marginBottom: '15px' }}>
-                                    <label htmlFor="impuestoRenting">Impuesto Renting (%)</label>
+                                    <label htmlFor="impuestoRenting">Precio por mes</label>
                                     <input
                                         id="impuestoRenting"
                                         type="number"
@@ -582,7 +581,7 @@ export default function GenerateBudgetModal({ isOpen, onClose, currentIdCliente,
                                         max="100"
                                         value={impuestoRenting || ''}
                                         onChange={(e) => setImpuestoRenting(e.target.value)}
-                                        placeholder="Ej: 5.5"
+                                        placeholder="Ej: 50€"
                                         disabled={saving}
                                         required
                                     />

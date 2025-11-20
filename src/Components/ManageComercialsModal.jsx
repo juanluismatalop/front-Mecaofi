@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import './addClientModal.css'; 
 import ChangePasswordModal from './ChangePasswordModal'; // ¡IMPORTANTE!
 
-const API_COMERCIALES_URL = 'http://localhost:8000/api/comerciales';
-const API_REASSIGN_URL = 'http://localhost:8000/api/comerciales/reassign'; 
+const API_COMERCIALES_URL = 'https://www.mecaofi.com/LibroVisitas/back/public/api/comerciales';
+const API_REASSIGN_URL = 'https://www.mecaofi.com/LibroVisitas/back/public/api/comerciales/reassign'; 
 
 export default function ManageComercialsModal({ show, onClose, currentUserId, adminId = 10 }) {
     const [comerciales, setComerciales] = useState([]);

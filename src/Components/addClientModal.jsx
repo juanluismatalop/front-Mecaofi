@@ -6,7 +6,6 @@ const CLIENTES_API_URL = 'http://localhost:8000/api/clientes';
 const COMERCIALES_API_URL = 'http://localhost:8000/api/comerciales'; 
 
 const isValidEmail = (email) => {
-    // Si el email está vacío, se considera válido (porque es opcional)
     if (!email) return true; 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i; 
     return emailRegex.test(email);
@@ -27,7 +26,7 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
         PersonaContacto: '',
         Telefono: '', 
         Telefono2: '', 
-        Correo: '', 
+        Correo: '',  // 🚨 DEJAR VACÍO - NO PONER CORREO POR DEFECTO
         Correo2: '', 
         Direccion: '',
         Ciudad: '',
@@ -88,7 +87,6 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
         }
     }, [show]); 
 
-
     const handleChange = (e) => {
         const { name, value } = e.target;
         let finalValue = value;
@@ -111,6 +109,7 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
         setSubmitting(true);
         const token = localStorage.getItem('token');
 
+        // Validaciones del frontend
         if (!formData.IdComercial || formData.IdComercial === '') {
             setError("Debe asignar un comercial.");
             setSubmitting(false);
@@ -128,7 +127,6 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
              return;
         }
 
-        // El Correo Principal ya no es requerido. Solo validamos si tiene un valor no vacío.
         if (formData.Correo && !isValidEmail(formData.Correo)) {
             setError("El Correo Principal no tiene un formato válido.");
             setSubmitting(false);
@@ -140,19 +138,22 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
             return;
         }
 
+        // 🚨 CORRECCIÓN DEFINITIVA: Enviar null cuando el correo esté vacío
         const clientData = {
-            Nombre: formData.Nombre,
-            PersonaContacto: formData.PersonaContacto,
+            Nombre: formData.Nombre.trim(),
+            PersonaContacto: formData.PersonaContacto.trim(),
             Telefono: formData.Telefono, 
-            Telefono2: formData.Telefono2, 
-            // 👉 CAMBIO 1: Si 'Correo' está vacío, usa 'norelleno@gmail.com'
-            Correo: formData.Correo || 'norelleno@gmail.com', 
-            Correo2: formData.Correo2, 
-            Direccion: formData.Direccion,
-            Ciudad: formData.Ciudad,
-            Provincia: formData.Provincia,
+            Telefono2: formData.Telefono2 || null,
+            // 🚨 IMPORTANTE: Si está vacío, enviar null. Si tiene valor, enviar el valor.
+            Correo: formData.Correo.trim() ? formData.Correo.trim() : null, 
+            Correo2: formData.Correo2.trim() ? formData.Correo2.trim() : null,
+            Direccion: formData.Direccion.trim() || null,
+            Ciudad: formData.Ciudad.trim() || null,
+            Provincia: formData.Provincia.trim() || null,
             IdComercial: formData.IdComercial,
         };
+
+        console.log("📤 Enviando datos al servidor:", clientData);
 
         try {
             const response = await fetch(CLIENTES_API_URL, {
@@ -165,22 +166,65 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
             });
 
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || "Fallo al crear el cliente. Verifique los datos.");
+                let errorMessage = "Fallo al crear el cliente. Verifique los datos.";
+                
+                try {
+                    const errorData = await response.json();
+                    console.error("🔴 Error del servidor:", errorData);
+                    
+                    if (response.status === 422 && errorData.errors) {
+                        const backendErrors = Object.values(errorData.errors).flat().join(', ');
+                        errorMessage = `Errores de validación: ${backendErrors}`;
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    }
+                } catch (parseError) {
+                    const errorText = await response.text();
+                    console.error("Error al parsear respuesta:", errorText);
+                    errorMessage = `Error ${response.status}: ${response.statusText}`;
+                }
+                
+                throw new Error(errorMessage);
             }
+
+            const newClient = await response.json();
+            console.log("✅ Cliente creado exitosamente:", newClient);
 
             if (onClientAdded) {
-                onClientAdded(); 
+                onClientAdded(newClient);
             }
 
-            window.location.reload(); 
+            onClose();
             
         } catch (err) {
-            console.error("Error al crear cliente:", err);
+            console.error("❌ Error al crear cliente:", err);
             setError(err.message || "Error de red al intentar registrar.");
         } finally {
             setSubmitting(false);
         }
+    };
+
+    const debugData = () => {
+        const clientData = {
+            Nombre: formData.Nombre.trim(),
+            PersonaContacto: formData.PersonaContacto.trim(),
+            Telefono: formData.Telefono, 
+            Telefono2: formData.Telefono2 || null,
+            Correo: formData.Correo.trim() ? formData.Correo.trim() : null,
+            Correo2: formData.Correo2.trim() ? formData.Correo2.trim() : null,
+            Direccion: formData.Direccion.trim() || null,
+            Ciudad: formData.Ciudad.trim() || null,
+            Provincia: formData.Provincia.trim() || null,
+            IdComercial: formData.IdComercial,
+        };
+        console.log("🔍 Datos a enviar (debug):", clientData);
+        
+        // Mostrar información útil en el alert
+        const emailInfo = clientData.Correo === null ? 
+            "✅ Correo: null (Backend generará automáticamente)" : 
+            `📧 Correo: ${clientData.Correo} (Usuario proporcionado)`;
+            
+        alert(`Datos a enviar:\n${emailInfo}\n\nRevisa la consola para más detalles.`);
     };
     
     if (!show) {
@@ -191,22 +235,47 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
         <div className="modal-backdrop"> 
             <div className="modal-content" onClick={e => e.stopPropagation()}>
                 
-                {/* 1. Header Fijo */}
                 <div className="modal-header">
                     <h2>Añadir Nuevo Cliente</h2>
                     <button className="close-button" onClick={onClose}>&times;</button>
                 </div>
                 
-                {/* 2. Cuerpo Desplazable (Scrollable) */}
                 <div className="modal-body-scrollable">
 
-                    {error && <p className="error-message-modal">{error}</p>}
+                    {error && (
+                        <div className="error-message-modal">
+                            <strong>Error:</strong> {error}
+                            <br />
+                            <small style={{color: '#666', marginTop: '5px', display: 'block'}}>
+                                Verifique que todos los campos requeridos estén completos y en el formato correcto.
+                            </small>
+                        </div>
+                    )}
+                    
+                    {process.env.NODE_ENV === 'development' && (
+                        <button 
+                            type="button" 
+                            onClick={debugData}
+                            style={{
+                                backgroundColor: '#ff9800',
+                                color: 'white',
+                                padding: '5px 10px',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                marginBottom: '10px',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            🔍 Ver Datos a Enviar
+                        </button>
+                    )}
                     
                     <form onSubmit={handleSubmit}>
                         
                         <div className="form-group-row">
                             <div className="form-group required">
-                                <label htmlFor="Nombre">Nombre del Cliente (Empresa)</label>
+                                <label htmlFor="Nombre">Nombre del Cliente (Empresa) *</label>
                                 <input 
                                     type="text" 
                                     id="Nombre" 
@@ -214,12 +283,13 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                                     value={formData.Nombre} 
                                     onChange={handleChange} 
                                     required
+                                    placeholder="Ingrese el nombre de la empresa"
                                 />
                             </div>
                             
                             {isAdmin && (
                                 <div className="form-group required">
-                                    <label htmlFor="IdComercial">Asignar Comercial</label>
+                                    <label htmlFor="IdComercial">Asignar Comercial *</label>
                                     <select 
                                         id="IdComercial" 
                                         name="IdComercial" 
@@ -245,13 +315,21 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                         </div>
 
                         <div className="form-group required">
-                            <label htmlFor="PersonaContacto">Persona de Contacto</label>
-                            <input type="text" id="PersonaContacto" name="PersonaContacto" value={formData.PersonaContacto} onChange={handleChange} required />
+                            <label htmlFor="PersonaContacto">Persona de Contacto *</label>
+                            <input 
+                                type="text" 
+                                id="PersonaContacto" 
+                                name="PersonaContacto" 
+                                value={formData.PersonaContacto} 
+                                onChange={handleChange} 
+                                required 
+                                placeholder="Nombre de la persona de contacto"
+                            />
                         </div>
 
                         <div className="form-group-row">
                             <div className={`form-group required ${formData.Telefono.length > 0 && formData.Telefono.length !== 9 ? 'has-error' : ''}`}>
-                                <label htmlFor="Telefono">Teléfono Principal</label>
+                                <label htmlFor="Telefono">Teléfono Principal *</label>
                                 <input 
                                     type="tel" 
                                     id="Telefono" 
@@ -262,9 +340,10 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                                     maxLength={9} 
                                     pattern="\d{9}"
                                     inputMode="numeric"
+                                    placeholder="123456789"
                                 />
                                 {formData.Telefono.length > 0 && formData.Telefono.length !== 9 && (
-                                    <small className="input-error-tip">Debe tener 9 dígitos.</small>
+                                    <small className="input-error-tip">Debe tener exactamente 9 dígitos.</small>
                                 )}
                             </div>
                             <div className={`form-group ${formData.Telefono2.length > 0 && formData.Telefono2.length !== 9 ? 'has-error' : ''}`}>
@@ -278,6 +357,7 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                                     maxLength={9}
                                     pattern="\d{9}"
                                     inputMode="numeric"
+                                    placeholder="Opcional"
                                 />
                                 {formData.Telefono2.length > 0 && formData.Telefono2.length !== 9 && (
                                     <small className="input-error-tip">Debe tener 9 dígitos o estar vacío.</small>
@@ -286,31 +366,72 @@ export default function AddClientModal ({ show, onClose, onClientAdded }){
                         </div>
 
                         <div className="form-group-row">
-                            {/* 👉 CAMBIO 2: Eliminar la clase 'required', cambiar la etiqueta y eliminar el atributo 'required' */}
                             <div className="form-group"> 
                                 <label htmlFor="Correo">Correo Principal</label>
-                                <input type="email" id="Correo" name="Correo" value={formData.Correo} onChange={handleChange} />
+                                <input 
+                                    type="email" 
+                                    id="Correo" 
+                                    name="Correo" 
+                                    value={formData.Correo} 
+                                    onChange={handleChange} 
+                                    placeholder="Dejar vacío para generar automáticamente"
+                                />
+                                <small className="input-help-tip">
+                                    💡 Si deja este campo vacío, el sistema generará un correo único automáticamente (@pruebamecaofi.com)
+                                </small>
                             </div>
                             <div className="form-group">
                                 <label htmlFor="Correo2">Correo Secundario</label>
-                                <input type="email" id="Correo2" name="Correo2" value={formData.Correo2} onChange={handleChange} />
+                                <input 
+                                    type="email" 
+                                    id="Correo2" 
+                                    name="Correo2" 
+                                    value={formData.Correo2} 
+                                    onChange={handleChange} 
+                                    placeholder="Opcional"
+                                />
                             </div>
                         </div>
                         
                         <div className="form-group">
                             <label htmlFor="Direccion">Dirección Completa</label>
-                            <input type="text" id="Direccion" name="Direccion" value={formData.Direccion} onChange={handleChange} />
+                            <input 
+                                type="text" 
+                                id="Direccion" 
+                                name="Direccion" 
+                                value={formData.Direccion} 
+                                onChange={handleChange} 
+                                placeholder="Dirección completa"
+                            />
                         </div>
                         
                         <div className="form-group-row">
                             <div className="form-group">
                                 <label htmlFor="Ciudad">Ciudad</label>
-                                <input type="text" id="Ciudad" name="Ciudad" value={formData.Ciudad} onChange={handleChange} />
+                                <input 
+                                    type="text" 
+                                    id="Ciudad" 
+                                    name="Ciudad" 
+                                    value={formData.Ciudad} 
+                                    onChange={handleChange} 
+                                    placeholder="Ciudad"
+                                />
                             </div>
                             <div className="form-group">
                                 <label htmlFor="Provincia">Provincia</label>
-                                <input type="text" id="Provincia" name="Provincia" value={formData.Provincia} onChange={handleChange} />
+                                <input 
+                                    type="text" 
+                                    id="Provincia" 
+                                    name="Provincia" 
+                                    value={formData.Provincia} 
+                                    onChange={handleChange} 
+                                    placeholder="Provincia"
+                                />
                             </div>
+                        </div>
+
+                        <div className="form-required-note">
+                            <small>* Campos obligatorios</small>
                         </div>
                         
                         <button type="submit" className="submit-button" disabled={submitting}>
