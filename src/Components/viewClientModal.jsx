@@ -310,15 +310,16 @@ export default function ViewClientModal({ show, onClose, cliente, onClientUpdate
         
         try {
             const url = isCreating ? VISITAS_API_BASE_URL : `${VISITAS_API_BASE_URL}/${visitaId}`;
-            const method = isCreating ? 'POST' : 'PUT'; 
+            const method = 'POST';
 
             const response = await fetch(url, {
-                method: method, 
+                method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}` 
+                    'Authorization': `Bearer ${token}`
                 },
                 body: formData
             });
+
 
             if (!response.ok) {
                 const errorData = await response.json();

@@ -1,3 +1,5 @@
+// HomePage.jsx
+
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AddClientModal from './addClientModal';
@@ -6,39 +8,52 @@ import AddComercialModal from './addComercialModal';
 import AddMachineModal from './AddMachineModal'; 
 import ManageComercialsModal from './ManageComercialsModal'; 
 import ViewCalendarModal from './ViewCalendarModal'; 
+// 🚨 NUEVA IMPORTACIÓN DEL MODAL DE GESTIÓN DE MÁQUINAS
+import ManageMachinesModal from './ManageMachinesModal'; 
 import './HomePage.css';
 import logo from '../assets/Logo-Mecaofi.jpg';
 
-const CLIENTES_API_URL = 'http://localhost:8000/api/clientes'; 
-const COMERCIALES_API_URL = 'http://localhost:8000/api/comerciales/';
-const VISITAS_API_URL = 'http://localhost:8000/api/visitas'; 
+// URLs de la API
+const CLIENTES_API_URL = 'https://www.mecaofi.com/LibroVisitas/back/public/api/clientes'; 
+const COMERCIALES_API_URL = 'https://www.mecaofi.com/LibroVisitas/back/public/api/comerciales/';
+const VISITAS_API_URL = 'https://www.mecaofi.com/LibroVisitas/back/public/api/visitas'; 
 const ADMIN_ID = 10; 
 
 export default function HomePage() {
+    // --- ESTADOS DE DATOS ---
     const [clientes, setClientes] = useState([]);
     const [comerciales, setComerciales] = useState([]);
     const [visitas, setVisitas] = useState([]);
-    // ESTADO CLAVE: Visitas con la información del cliente adjunta
     const [visitasEnriquecidas, setVisitasEnriquecidas] = useState([]); 
     
+    // --- ESTADOS DE UI Y CONTROL ---
     const [selectedComercialId, setSelectedComercialId] = useState('all');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [showModal, setShowModal] = useState(false);
     const [authChecked, setAuthChecked] = useState(false);
-    const [showViewModal, setShowViewModal] = useState(false);
+    
+    // --- ESTADOS DE MODALES ---
+    const [showModal, setShowModal] = useState(false); // AddClientModal
+    const [showViewModal, setShowViewModal] = useState(false); // ViewClientModal
+    const [showComercialModal, setShowComercialModal] = useState(false); // AddComercialModal
+    const [showManageComercialsModal, setShowManageComercialsModal] = useState(false); // ManageComercialsModal
+    const [showAddMachineModal, setShowAddMachineModal] = useState(false); // AddMachineModal
+    const [showCalendarModal, setShowCalendarModal] = useState(false); // ViewCalendarModal
+    // 🚨 NUEVO ESTADO PARA EL MODAL DE GESTIÓN DE MÁQUINAS
+    const [showManageMachinesModal, setShowManageMachinesModal] = useState(false); 
+
+    // --- ESTADOS DE FILTRO/BÚSQUEDA ---
     const [selectedClient, setSelectedClient] = useState(null); 
-    const [showComercialModal, setShowComercialModal] = useState(false); 
-    const [showManageComercialsModal, setShowManageComercialsModal] = useState(false); 
-    const [showAddMachineModal, setShowAddMachineModal] = useState(false);
-    const [showCalendarModal, setShowCalendarModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [searchCity, setSearchCity] = useState('');
+
+    // --- ESTADOS DE USUARIO ---
     const [userId, setUserId] = useState(null); 
     const [userName, setUserName] = useState("Cargando..."); 
     
     const navigate = useNavigate();
 
+    // --- LÓGICA DE AUTENTICACIÓN Y LOGOUT ---
     const handleLogout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('comercialId');
@@ -46,7 +61,6 @@ export default function HomePage() {
         navigate('/');
     };
     
-    // --- LÓGICA DE AUTENTICACIÓN INICIAL ---
     useEffect(() => {
         const token = localStorage.getItem('token');
         const storedUserId = localStorage.getItem('comercialId');
@@ -157,7 +171,7 @@ export default function HomePage() {
         }
     };
 
-    // 🚨 NUEVA FUNCIÓN: Recargar datos específicos para el calendario
+    // FUNCIÓN PARA RECARGAR DATOS PARA EL CALENDARIO
     const reloadCalendarData = async () => {
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -165,7 +179,6 @@ export default function HomePage() {
         try {
             console.log("🔃 Recargando datos para el calendario...");
             
-            // Recargar visitas y comerciales para tener datos frescos
             const [visitasResponse, comercialesResponse] = await Promise.all([
                 fetch(VISITAS_API_URL, {
                     method: 'GET',
@@ -226,35 +239,27 @@ export default function HomePage() {
         }
     }, [authChecked, userId]);
 
-    // --- 🚨 useMemo MEJORADO: ENRIQUECIMIENTO DE CLIENTES CON MANEJO DE NULL ---
+    // --- useMemo: ENRIQUECIMIENTO DE CLIENTES ---
     const clientesEnriquecidos = useMemo(() => {
         if (!clientes || !Array.isArray(clientes)) {
-            console.warn("⚠️ clientes no es un array válido:", clientes);
             return [];
         }
         
         if (!comerciales || !Array.isArray(comerciales)) {
-            console.warn("⚠️ comerciales no es un array válido, usando clientes sin enriquecer");
             return clientes;
         }
-
-        console.log("🔄 Enriqueciendo clientes:", clientes.length, "clientes con", comerciales.length, "comerciales");
 
         const comercialesMap = new Map(comerciales.map(c => [c.Id, c]));
 
         const clientesEnriquecidos = clientes.map(c => {
-            if (!c) {
-                console.warn("⚠️ Cliente nulo encontrado");
-                return null;
-            }
+            if (!c) return null;
 
             const comercial = comercialesMap.get(c.IdComercial); 
 
-            // 🚨 CORRECCIÓN: Manejar todos los campos que podrían ser NULL
+            // Manejo de valores nulos y asignación del nombre del comercial
             const clienteEnriquecido = {
                 ...c,
                 NombreComercial: comercial ? comercial.Nombre : 'Comercial Eliminado',
-                // 🚨 Asegurar valores por defecto para campos NULL
                 Nombre: c.Nombre || 'Sin nombre',
                 PersonaContacto: c.PersonaContacto || 'No especificado',
                 Telefono: c.Telefono || 'No especificado',
@@ -269,13 +274,11 @@ export default function HomePage() {
             return clienteEnriquecido;
         }).filter(Boolean); // Filtrar posibles valores null
 
-        console.log("✅ Clientes enriquecidos:", clientesEnriquecidos.length);
-        
         return clientesEnriquecidos;
 
     }, [clientes, comerciales]);
 
-    // --- EFECTO ENRIQUECIMIENTO DE VISITAS (CORREGIDO) ---
+    // --- EFECTO: ENRIQUECIMIENTO DE VISITAS ---
     useEffect(() => {
         if (visitas.length > 0 && comerciales.length > 0) {
             
@@ -284,7 +287,6 @@ export default function HomePage() {
             const comercialesMap = new Map(comerciales.map(c => [c.Id.toString(), c])); 
 
             const visitasConDatos = visitas.map(v => {
-                // 🚨 CORRECCIÓN: Usar los nombres correctos del backend
                 const cliente = clientesMap.get(v.IdCliente); 
                 
                 const comercialIdString = v.IdComercial ? v.IdComercial.toString() : null;
@@ -305,32 +307,26 @@ export default function HomePage() {
         }
     }, [clientes, visitas, comerciales]); 
 
-    // --- 🚨 LÓGICA DE FILTRADO DE CLIENTES CORREGIDA ---
+    // --- useMemo: LÓGICA DE FILTRADO DE CLIENTES ---
     const clientesFiltrados = useMemo(() => {
-        console.log("🔍 Iniciando filtrado de clientes...");
-        
         const lowerSearchTerm = searchTerm.toLowerCase().trim();
         const lowerSearchCity = searchCity.toLowerCase().trim();
         
         let clientesVisibles = clientesEnriquecidos;
         const isAdmin = userId === ADMIN_ID;
 
-        console.log(`👥 Clientes antes de filtrar: ${clientesVisibles.length}`);
-        console.log(`🔎 Término de búsqueda: "${searchTerm}", Ciudad: "${searchCity}"`);
-
+        // 1. Filtrado por Comercial Asignado (Admin o Propio Comercial)
         if (isAdmin && selectedComercialId !== 'all') {
             const filterId = parseInt(selectedComercialId, 10);
             clientesVisibles = clientesVisibles.filter(cliente => cliente.IdComercial === filterId);
-            console.log(`📊 Filtrado por comercial ${filterId}: ${clientesVisibles.length} clientes`);
         }
         
         if (userId !== null && userId !== ADMIN_ID) {
             clientesVisibles = clientesVisibles.filter(cliente => cliente.IdComercial === userId);
-            console.log(`📊 Filtrado por usuario ${userId}: ${clientesVisibles.length} clientes`);
         }
         
+        // 2. Filtrado por Términos de Búsqueda (Nombre, Contacto, Comercial y Ciudad)
         const clientesFiltrados = clientesVisibles.filter(cliente => {
-            // 🚨 CORRECCIÓN: Manejar valores null/undefined correctamente
             const nombre = cliente.Nombre || '';
             const personaContacto = cliente.PersonaContacto || '';
             const comercialName = cliente.NombreComercial || '';
@@ -341,46 +337,29 @@ export default function HomePage() {
                 personaContacto.toLowerCase().includes(lowerSearchTerm) ||
                 comercialName.toLowerCase().includes(lowerSearchTerm);
 
-            // 🚨 CORRECCIÓN: Si no hay término de búsqueda de ciudad, mostrar todos
             const matchesCity = lowerSearchCity === '' || 
                                ciudad.toLowerCase().includes(lowerSearchCity);
             
             return matchesSearchTerm && matchesCity;
         });
-
-        console.log(`✅ Clientes después de filtrar: ${clientesFiltrados.length}`);
-        
-        // 🚨 DEBUG: Mostrar qué clientes fueron filtrados
-        if (clientesFiltrados.length === 0 && clientesVisibles.length > 0) {
-            console.log("❌ Todos los clientes fueron filtrados. Clientes disponibles:");
-            clientesVisibles.forEach((cliente, index) => {
-                console.log(`   ${index + 1}. ${cliente.Nombre} | Ciudad: "${cliente.Ciudad}" | Comercial: "${cliente.NombreComercial}"`);
-            });
-        }
         
         return clientesFiltrados;
 
     }, [clientesEnriquecidos, searchTerm, searchCity, userId, selectedComercialId]);
     
-    // --- 🚨 HANDLER CORREGIDO: handleClientAdded ---
+    // --- HANDLERS DE MODAL Y CRUD ---
     const handleClientAdded = (newClient) => {
-        // 🚨 VERIFICACIÓN DE SEGURIDAD: Asegurarse de que newClient existe
         if (!newClient) {
-            console.error("Error: newClient es undefined en handleClientAdded");
             setShowModal(false);
             return;
         }
 
-        console.log("🔄 Cliente recibido para agregar:", newClient);
-
-        // 🚨 CORRECCIÓN: Buscar el comercial asignado
         const comercialAsignado = comerciales.find(c => c.Id === newClient.IdComercial);
         
-        // 🚨 CORRECCIÓN: Crear el cliente enriquecido con manejo de NULL
+        // Crear el cliente enriquecido con manejo de NULL
         const enrichedNewClient = {
             ...newClient,
             NombreComercial: comercialAsignado ? comercialAsignado.Nombre : 'Comercial Eliminado',
-            // 🚨 Asegurar que todos los campos tengan valores por defecto si son NULL
             Nombre: newClient.Nombre || 'Sin nombre',
             PersonaContacto: newClient.PersonaContacto || 'No especificado',
             Telefono: newClient.Telefono || 'No especificado',
@@ -392,21 +371,13 @@ export default function HomePage() {
             Provincia: newClient.Provincia || 'No especificada'
         };
 
-        console.log("✅ Cliente enriquecido para agregar:", enrichedNewClient);
-
-        // 🚨 ACTUALIZACIÓN DEL ESTADO CON VERIFICACIÓN
         setClientes(prevClientes => {
-            // Verificar si el cliente ya existe para evitar duplicados
             const clientExists = prevClientes.some(c => c.Id === enrichedNewClient.Id);
             if (clientExists) {
-                // Si existe, actualizarlo
-                console.log("🔄 Actualizando cliente existente");
                 return prevClientes.map(c => 
                     c.Id === enrichedNewClient.Id ? enrichedNewClient : c
                 );
             } else {
-                // Si no existe, añadirlo al principio
-                console.log("➕ Añadiendo nuevo cliente a la lista");
                 return [enrichedNewClient, ...prevClientes];
             }
         });
@@ -428,10 +399,10 @@ export default function HomePage() {
         setShowViewModal(false); 
         
         const comercialAsignado = comerciales.find(c => c.Id === updatedClient.IdComercial);
+        // Crear el cliente enriquecido con manejo de NULL
         const enrichedUpdatedClient = {
             ...updatedClient,
             NombreComercial: comercialAsignado ? comercialAsignado.Nombre : 'Comercial Eliminado',
-            // 🚨 Asegurar valores por defecto para campos actualizados
             Nombre: updatedClient.Nombre || 'Sin nombre',
             PersonaContacto: updatedClient.PersonaContacto || 'No especificado',
             Telefono: updatedClient.Telefono || 'No especificado',
@@ -491,14 +462,9 @@ export default function HomePage() {
         setShowViewModal(true);
     };
     
-    // 🚨 HANDLER CORREGIDO: Abrir calendario con recarga de datos
+    // HANDLER CORREGIDO: Abrir calendario con recarga de datos
     const handleOpenCalendarModal = async () => {
-        console.log("📅 Abriendo modal de calendario...");
-        
-        // Recargar datos antes de abrir el modal
         await reloadCalendarData();
-        
-        // Abrir el modal después de recargar datos
         setShowCalendarModal(true);
     };
 
@@ -568,13 +534,27 @@ export default function HomePage() {
                 {/* Botones de Administración (Solo Admin) */}
                 {isAdmin && (
                     <button className='boton2' onClick={() => setShowComercialModal(true)} style={{ marginLeft: '10px' }}>
-                        Registrar Comercial
+                        Registrar Comercial🧑‍💼
                     </button>
                 )}
                 
                 {isAdmin && (
                     <button className='boton2' onClick={() => setShowManageComercialsModal(true)} style={{ marginLeft: '10px' }}>
-                        Gestionar Comerciales
+                        Gestionar Comerciales🧑‍💻
+                    </button>
+                )}
+                
+                {/* 🚨 NUEVO BOTÓN: Gestionar Máquinas (Solo Admin) */}
+                {isAdmin && (
+                    <button 
+                        className='boton2' 
+                        onClick={() => setShowManageMachinesModal(true)} 
+                        style={{ 
+                            marginLeft: '10px'
+                        }}
+                        title='Listar y eliminar máquinas del sistema'
+                    >
+                        Gestionar Máquinas ⚙️
                     </button>
                 )}
                 
@@ -624,7 +604,6 @@ export default function HomePage() {
                                     </option>
                                 ))}
                             </select>
-                            <label htmlFor="comercialFilter" className="form__label" style={{ top: '8px' }}>Filtrar por Comercial</label>
                         </div>
                     )}
                 </div>
@@ -638,6 +617,7 @@ export default function HomePage() {
                             <th>Correo Electrónico</th>
                             <th>Comercial Asignado</th>
                             <th>Acciones</th>
+                            {/* Columna de eliminar solo visible para Admin */}
                             {isAdmin && <th><i className="fas fa-trash-alt" title='Borrar'></i></th>} 
                         </tr>
                     </thead>
@@ -663,6 +643,7 @@ export default function HomePage() {
                                 <td>{cliente.Correo}</td>
                                 <td>{cliente.NombreComercial}</td> 
                                 <td style={{ textAlign: 'center' }}>
+                                    {/* Botón Eliminar en tabla, solo Admin puede usarlo */}
                                     {isAdmin && (
                                         <button 
                                             className='delete-button'
@@ -710,7 +691,6 @@ export default function HomePage() {
                 adminId={ADMIN_ID} 
             />
             
-            {/* 🚨 MODAL DE CALENDARIO - AHORA SE DEBERÍA ABRIR */}
             <ViewCalendarModal
                 show={showCalendarModal}
                 onClose={() => setShowCalendarModal(false)}
@@ -725,6 +705,14 @@ export default function HomePage() {
                 isOpen={showAddMachineModal} 
                 onClose={() => setShowAddMachineModal(false)}
                 onSuccess={handleMachineAdded}
+            />
+            
+            {/* 🚨 NUEVO MODAL DE GESTIÓN DE MÁQUINAS */}
+            <ManageMachinesModal
+                show={showManageMachinesModal}
+                onClose={() => setShowManageMachinesModal(false)}
+                userId={userId}
+                ADMIN_ID={ADMIN_ID}
             />
         </div>
     );

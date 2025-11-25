@@ -1,23 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import './addClientModal.css'; 
-import ChangePasswordModal from './ChangePasswordModal'; // ¡IMPORTANTE!
+import ChangePasswordModal from './ChangePasswordModal'; 
 
+// *** CORRECCIÓN CRÍTICA: La ruta de reasignación debe coincidir con el backend 'reassign-and-remove' ***
+// const API_COMERCIALES_URL = 'http://localhost:8000/api/comerciales';
+// const API_REASSIGN_URL = 'http://localhost:8000/api/comerciales/reassign-and-remove'; 
+
+// Si estás en producción, usa las URLs comentadas:
 const API_COMERCIALES_URL = 'https://www.mecaofi.com/LibroVisitas/back/public/api/comerciales';
-const API_REASSIGN_URL = 'https://www.mecaofi.com/LibroVisitas/back/public/api/comerciales/reassign'; 
+const API_REASSIGN_URL = 'https://www.mecaofi.com/LibroVisitas/back/public/api/comerciales/reassign-and-remove'; 
+
 
 export default function ManageComercialsModal({ show, onClose, currentUserId, adminId = 10 }) {
+    // Estados principales para la gestión de comerciales
     const [comerciales, setComerciales] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     
+    // Estados para el proceso de reasignación
     const [clientsToReassign, setClientsToReassign] = useState(null); 
     const [commercialToDeleteId, setCommercialToDeleteId] = useState(null);
     const [commercialToDeleteName, setCommercialToDeleteName] = useState('');
     const [newComercialId, setNewComercialId] = useState(''); 
 
+    // Estados para el modal de cambio de contraseña
     const [showPasswordModal, setShowPasswordModal] = useState(false);
     const [commercialToChangePass, setCommercialToChangePass] = useState({ id: null, name: '' });
 
+    // Efecto para cargar los comerciales cuando el modal se muestra
     useEffect(() => {
         if (show) {
             fetchComerciales();
@@ -27,6 +37,7 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
         }
     }, [show]);
     
+    // Función para restablecer el estado de reasignación
     const resetReassignmentState = () => {
         setClientsToReassign(null);
         setCommercialToDeleteId(null);
@@ -35,11 +46,13 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
         setError(null);
     };
 
+    // Abre el modal de cambio de contraseña
     const handleOpenChangePassword = (comercialId, comercialName) => {
         setCommercialToChangePass({ id: comercialId, name: comercialName });
         setShowPasswordModal(true);
     };
     
+    // Petición para obtener la lista de comerciales
     const fetchComerciales = async () => {
         const token = localStorage.getItem('token');
         setLoading(true);
@@ -59,7 +72,8 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
             }
 
             const data = await response.json();
-            setComerciales(data); 
+            const validComerciales = Array.isArray(data) ? data : (data.comerciales || []);
+            setComerciales(validComerciales); 
 
         } catch (e) {
             console.error("Error al obtener comerciales:", e);
@@ -69,21 +83,27 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
         }
     };
 
+    // Función para intentar eliminar un comercial
     const handleDeleteComercial = async (comercialId, comercialName) => {
+        // Validación de permisos y reglas de negocio
         if (comercialId === adminId) {
-            alert("El administrador principal no puede ser eliminado.");
+            // Nota: En un entorno de producción se debe usar un modal personalizado, no alert()
+            alert("El administrador principal no puede ser eliminado."); 
             return;
         }
         if (comercialId === currentUserId) {
+            // Nota: En un entorno de producción se debe usar un modal personalizado, no alert()
             alert("No puedes eliminar tu propia cuenta mientras estás logueado.");
             return;
         }
 
+        // Nota: Reemplazar window.confirm con un modal personalizado
         if (!window.confirm(`¿Estás seguro de intentar eliminar al comercial "${comercialName}"?`)) {
             return;
         }
 
         const token = localStorage.getItem('token');
+        setError(null);
         
         try {
             const deleteUrl = `${API_COMERCIALES_URL}/${comercialId}`;
@@ -99,15 +119,17 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
                 
                 const contentType = response.headers.get("content-type");
                 let data = {};
+                
                 if (contentType && contentType.includes("application/json")) {
                     try {
                         data = await response.json();
-                    // eslint-disable-next-line no-unused-vars
                     } catch (e) {
                         data = {}; 
+                        console.error("Error al intentar parsear JSON en 409:", e);
                     }
                 }
                 
+                // Lógica clave para manejar el 409/400 (Conflicto) y solicitar reasignación
                 if ((response.status === 409 || response.status === 400) && data.clients && Array.isArray(data.clients) && data.clients.length > 0) {
                     
                     const availableComerciales = comerciales.filter(c => c.Id !== comercialId && c.Id !== adminId); 
@@ -126,7 +148,9 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
                 throw new Error(serverMessage);
             }
 
+            // Éxito en la eliminación (sin clientes asignados)
             setComerciales(prev => prev.filter(c => c.Id !== comercialId));
+            // Nota: En un entorno de producción se debe usar un modal personalizado, no alert()
             alert(`Comercial "${comercialName}" eliminado con éxito.`);
 
         } catch (error) {
@@ -135,6 +159,7 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
         }
     };
     
+    // Función para reasignar clientes y luego eliminar al comercial
     const handleReassignAndRemove = async () => {
         setError(null);
         if (!newComercialId) {
@@ -151,6 +176,7 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
                 clientIds: clientsToReassign.map(c => c.Id)
             };
             
+            // fetch usa la URL corregida: '.../reassign-and-remove'
             const response = await fetch(API_REASSIGN_URL, {
                 method: 'POST', 
                 headers: {
@@ -161,11 +187,27 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
             });
 
             if (!response.ok) {
-                const data = await response.json(); 
-                throw new Error(data.message || `Fallo en la reasignación y eliminación: ${response.statusText}`);
+                
+                const contentType = response.headers.get("content-type");
+                let data = {};
+                
+                // Manejo de Content-Type para evitar el SyntaxError si el backend no envía JSON
+                if (contentType && contentType.includes("application/json")) {
+                    try {
+                        data = await response.json(); 
+                    } catch (e) {
+                         console.error("Fallo en la reasignación: SyntaxError al leer la respuesta del servidor.", e);
+                         throw new Error("El servidor devolvió un error inesperado. El backend no envió JSON. (Revisar logs del servidor)");
+                    }
+                }
+                
+                // Lanza un error con el mensaje del backend o un mensaje genérico
+                throw new Error(data.message || `Fallo en la reasignación y eliminación: ${response.statusText} (Código: ${response.status})`);
             }
 
+            // Éxito en la reasignación y eliminación
             setComerciales(prev => prev.filter(c => c.Id !== commercialToDeleteId));
+            // Nota: En un entorno de producción se debe usar un modal personalizado, no alert()
             alert(`Comercial "${commercialToDeleteName}" eliminado y ${clientsToReassign.length} clientes reasignados con éxito.`);
 
             resetReassignmentState();
@@ -176,13 +218,16 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
         }
     };
     
+    // Comerciales disponibles para reasignación 
     const availableComerciales = comerciales.filter(c => c.Id !== commercialToDeleteId && c.Id !== adminId);
+    // Comerciales visibles en la lista principal
     const visibleComerciales = comerciales.filter(c => c.Id !== adminId);
 
     if (!show) {
         return null;
     }
     
+    // --- Renderizado del Modal de Reasignación ---
     if (clientsToReassign) {
         return (
             <div className="modal-backdrop">
@@ -245,6 +290,7 @@ export default function ManageComercialsModal({ show, onClose, currentUserId, ad
         );
     }
 
+    // --- Renderizado del Modal Principal de Gestión ---
     return (
         <div className="modal-backdrop" onClick={onClose}>
             <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '700px' }}>

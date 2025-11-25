@@ -14,9 +14,9 @@ const AddMachineModal = ({ isOpen, onClose, fetchMachines, machineToEdit, curren
     Nombre: '',
     Marca: '',
     Modelo: '',
-    Nserie: '',
+    
     Velocidad: '',
-    PrecioMaquina: '',
+    
     Imagen: '', // Esta será la URL de la imagen
     Tipo: 1, // 1=Color (o 0=Negro)
   };
@@ -34,9 +34,9 @@ const AddMachineModal = ({ isOpen, onClose, fetchMachines, machineToEdit, curren
           Nombre: machineToEdit.Nombre || '',
           Marca: machineToEdit.Marca || '',
           Modelo: machineToEdit.Modelo || '',
-          Nserie: machineToEdit.Nserie || '',
+          
           Velocidad: machineToEdit.Velocidad || '',
-          PrecioMaquina: machineToEdit.PrecioMaquina || '',
+          
           Imagen: machineToEdit.Imagen || '', // Carga la URL de imagen existente
           Tipo: machineToEdit.Tipo !== undefined ? machineToEdit.Tipo : 1, 
         });
@@ -228,22 +228,6 @@ const AddMachineModal = ({ isOpen, onClose, fetchMachines, machineToEdit, curren
                         <input type="text" id="Velocidad" name="Velocidad" value={formData.Velocidad} onChange={handleChange} required />
                     </div>
                     <div className="form-group">
-                        <label htmlFor="PrecioMaquina">Precio de la Máquina (€)</label>
-                        <input type="number" step="0.01" id="PrecioMaquina" name="PrecioMaquina" value={formData.PrecioMaquina} onChange={handleChange} required />
-                    </div>
-                </div>
-                
-                {/* Fila 3: Nserie */}
-                <div className="form-group-row">
-                    <div className="form-group full-width">
-                        <label htmlFor="Nserie">Número de Serie</label>
-                        <input type="text" id="Nserie" name="Nserie" value={formData.Nserie} onChange={handleChange} required />
-                    </div>
-                </div>
-
-                {/* Fila 4: Tipo (0/1) y Imagen (Explorador de Archivos) */}
-                <div className="form-group-row">
-                    <div className="form-group">
                         <label htmlFor="Tipo">Tipo de Impresión</label>
                         <select
                         name="Tipo"
@@ -257,7 +241,9 @@ const AddMachineModal = ({ isOpen, onClose, fetchMachines, machineToEdit, curren
                         <option value={0}>Negro</option> 
                         </select>
                     </div>
-                    
+                </div>
+                {/* Fila 4: Tipo (0/1) y Imagen (Explorador de Archivos) */}
+                <div className="form-group-row">
                     {/* 🚨 INPUT DE ARCHIVO (Explorador de Archivos) */}
                     <div className="form-group">
                         <label htmlFor="ImagenFile">Imagen de la Máquina</label>

@@ -8,17 +8,19 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
     const loggedInComercialId = parseInt(localStorage.getItem('comercialId'), 10);
     const isAdmin = loggedInComercialId === ADMIN_ID;
 
+    // 1. Añadimos ConfirmPass al estado inicial
     const initialFormData = useMemo(() => ({
         Comercial: '', 
         Pass: '', 
-        Correo: '', 
+        Correo: '',
+        ConfirmPass: '', // Campo para la confirmación de la contraseña
     }), []); 
 
     const [formData, setFormData] = useState(initialFormData);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
     const [successMessage, setSuccessMessage] = useState(null);
-    const [newComercial, setNewComercial] = useState(null); // Estado para el nuevo comercial
+    const [newComercial, setNewComercial] = useState(null); 
 
     // Efecto 1: Resetear el formulario cuando el modal se abre
     useEffect(() => {
@@ -34,7 +36,6 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
     useEffect(() => {
         if (successMessage && newComercial) {
             const timer = setTimeout(() => {
-                // Pasa el objeto del nuevo comercial al padre para actualización local
                 if (onComercialAdded) {
                     onComercialAdded(newComercial);
                 }
@@ -54,7 +55,6 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
             ...formData,
             [e.target.name]: e.target.value,
         });
-        // Limpiamos mensajes al escribir para permitir la edición
         if (error) setError(null);
         if (successMessage) setSuccessMessage(null);
     };
@@ -65,8 +65,16 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
         setError(null);
         setSuccessMessage(null);
         
-        if (!formData.Comercial.trim() || !formData.Pass.trim() || !formData.Correo.trim()) {
+        // 2. Validación: Verificar que todos los campos requeridos estén llenos
+        if (!formData.Comercial.trim() || !formData.Pass.trim() || !formData.Correo.trim() || !formData.ConfirmPass.trim()) {
             setError("Todos los campos son obligatorios.");
+            setSubmitting(false);
+            return;
+        }
+
+        // 3. Validación: Verificar que las contraseñas coincidan
+        if (formData.Pass !== formData.ConfirmPass) {
+             setError("La contraseña y la confirmación no coinciden.");
             setSubmitting(false);
             return;
         }
@@ -74,13 +82,20 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
         const token = localStorage.getItem('token'); 
         
         try {
+            // Nota: Al API solo le enviamos los campos que necesita (Comercial, Pass, Correo)
+            const dataToSend = {
+                Comercial: formData.Comercial,
+                Pass: formData.Pass,
+                Correo: formData.Correo,
+            };
+
             const response = await fetch(REGISTER_API_URL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`, 
                 },
-                body: JSON.stringify(formData), 
+                body: JSON.stringify(dataToSend), // Enviamos solo los campos necesarios
             });
 
             const responseData = await response.json(); 
@@ -90,7 +105,7 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
             }
 
             // Éxito:
-            setNewComercial(responseData); // Guarda el objeto devuelto por la API
+            setNewComercial(responseData); 
             setSuccessMessage(responseData.message || "Comercial registrado exitosamente. Cerrando...");
             
         } catch (e) {
@@ -144,6 +159,20 @@ export default function AddComercialModal ({ show, onClose, onComercialAdded }){
                             id="Pass" 
                             name="Pass" 
                             value={formData.Pass} 
+                            onChange={handleChange} 
+                            required 
+                            disabled={submitting}
+                        />
+                    </div>
+                    
+                    {/* 4. Cambios en el campo Confirmar Contraseña */}
+                    <div className="form-group">
+                        <label htmlFor="ConfirmPass">Confirmar Contraseña*</label>
+                        <input 
+                            type="password" 
+                            id="ConfirmPass" 
+                            name="ConfirmPass" // DEBE COINCIDIR CON EL NOMBRE EN EL ESTADO (initialFormData)
+                            value={formData.ConfirmPass} // Enlazado a ConfirmPass del estado
                             onChange={handleChange} 
                             required 
                             disabled={submitting}

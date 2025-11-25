@@ -6,8 +6,8 @@ import logo from '../assets/Logo-Mecaofi.jpg';
 // ==========================================================
 // ** CONFIGURACIÓN **
 // ==========================================================
-const API_URL = 'http://localhost:8000';
-// const API_URL = 'https://www.mecaofi.com/LibroVisitas/back/public';
+// const API_URL = 'http://localhost:8000';
+const API_URL = 'https://www.mecaofi.com/LibroVisitas/back/public';
 
 export default function Login(){
     const [comercial, setComercial] = useState(''); 
